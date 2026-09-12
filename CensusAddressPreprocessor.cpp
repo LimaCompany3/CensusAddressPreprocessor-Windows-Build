@@ -102,6 +102,8 @@ static void writeRow(std::ostream& o,const std::vector<std::string>& v){for(size
 static bool processFile(const fs::path& path, std::string& summary) {
     std::ifstream in(path,std::ios::binary); if(!in){summary="Could not open "+path.string();return false;}
     fs::path base=path.parent_path()/(path.stem().wstring()+L"_Final.csv"); fs::path rej=path.parent_path()/(path.stem().wstring()+L"_Rejected.csv");
+    std::error_code staleError;
+    if(fs::exists(rej) && !fs::remove(rej,staleError)) { summary="An older rejected file could not be removed. Close any program using it, then try again."; return false; }
     std::ofstream out(base,std::ios::binary); std::ofstream bad; if(!out){summary="Could not create the finished output file beside the input.";return false;}
     bool ok=false; auto header=parseCsvRecord(in,ok); if(!ok){summary="Invalid or empty CSV: "+path.string();return false;}
     if(!header.empty() && header[0].size()>=3 && (unsigned char)header[0][0]==0xEF) header[0].erase(0,3);
@@ -110,7 +112,9 @@ static bool processFile(const fs::path& path, std::string& summary) {
     for(auto& k:required)if(!idx.count(k)){summary="Missing required column: "+k+" in "+path.filename().string();return false;}
     writeRow(out,{"RowID","ZIPCode","StreetName","StreetSoundex","StreetNumericKey","StreetNumericClass","PrefixDirectional","StreetSuffix","SuffixDirectional","HouseNumberType","LowHouseNumber","HighHouseNumber","LowPrimaryNumber","HighPrimaryNumber","LowSecondaryNumber","HighSecondaryNumber","LowAlphaSuffix","HighAlphaSuffix","LowFractionValue","HighFractionValue","DerivedParity","CentroidLatitude","CentroidLongitude"});
     unsigned long long source=1,accepted=0,rejected=0;
-    while(in.peek()!=EOF){ auto row=parseCsvRecord(in,ok); ++source; if(row.empty()&&!ok)break; std::string zip=get(row,idx,"ZIP_CODE"), streetRaw=get(row,idx,"FULL_STREET_NAME"), loRaw=get(row,idx,"FROM_HOUSE_NUMBER"), hiRaw=get(row,idx,"TO_HOUSE_NUMBER"), lat=get(row,idx,"RANGE_CENTROID_LATITUDE"), lon=get(row,idx,"RANGE_CENTROID_LONGITUDE");
+    while(in.peek()!=EOF){ auto row=parseCsvRecord(in,ok); ++source; if(row.empty()&&!ok)break;
+        bool blankRecord=true; for(const auto& value:row) if(!trim(value).empty()){blankRecord=false;break;} if(blankRecord)continue;
+        std::string zip=get(row,idx,"ZIP_CODE"), streetRaw=get(row,idx,"FULL_STREET_NAME"), loRaw=get(row,idx,"FROM_HOUSE_NUMBER"), hiRaw=get(row,idx,"TO_HOUSE_NUMBER"), lat=get(row,idx,"RANGE_CENTROID_LATITUDE"), lon=get(row,idx,"RANGE_CENTROID_LONGITUDE");
         std::string reason; if(!ok)reason="Malformed CSV record"; else if(!std::regex_match(zip,std::regex("[0-9]{5}(-[0-9]{4})?")))reason="Invalid ZIP code"; else if(streetRaw.empty())reason="Blank street name"; else if(loRaw.empty()||hiRaw.empty())reason="Blank house-number endpoint"; else {try{std::stod(lat);std::stod(lon);}catch(...){reason="Invalid latitude or longitude";}}
         Street st=parseStreet(streetRaw); House lo=parseHouse(loRaw),hi=parseHouse(hiRaw); if(reason.empty()&&(st.name.empty()||lo.text.empty()||hi.text.empty()))reason="Unusable lookup value";
         if(!reason.empty()){
