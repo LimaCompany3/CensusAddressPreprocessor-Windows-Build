@@ -34,6 +34,9 @@ The program ignores previously generated _Final.csv and _Rejected.csv files.
 If no eligible input CSV or more than one eligible input CSV is present, it
 shows a clear message and does not process the wrong file.
 
+Any stale _Rejected.csv from an earlier run is removed before processing.
+Completely blank CSV lines are ignored and do not create rejection records.
+
 For safety, the original input CSV is preserved if processing or output writing
 fails. When processing succeeds with no rejected rows, only the _Final.csv file
 remains beside the executable.
