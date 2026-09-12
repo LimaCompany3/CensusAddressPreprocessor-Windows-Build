@@ -16,7 +16,7 @@ jobs:
           arch: x64
       - name: Compile self-contained 64-bit Windows application
         shell: cmd
-        run: cl /nologo /std:c++17 /O2 /EHsc /MT /DUNICODE /D_UNICODE CensusAddressPreprocessor.cpp /Fe:CensusAddressPreprocessor.exe /link /SUBSYSTEM:WINDOWS comdlg32.lib
+        run: cl /nologo /std:c++17 /O2 /EHsc /MT CensusAddressPreprocessor.cpp /Fe:CensusAddressPreprocessor.exe /link /SUBSYSTEM:WINDOWS comdlg32.lib user32.lib
       - name: Verify executable exists
         shell: pwsh
         run: |
