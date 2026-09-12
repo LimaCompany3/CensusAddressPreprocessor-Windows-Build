@@ -10,6 +10,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Configure Microsoft C++ compiler
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
       - name: Compile self-contained 64-bit Windows application
         shell: cmd
         run: cl /nologo /std:c++17 /O2 /EHsc /MT /DUNICODE /D_UNICODE CensusAddressPreprocessor.cpp /Fe:CensusAddressPreprocessor.exe /link /SUBSYSTEM:WINDOWS comdlg32.lib
