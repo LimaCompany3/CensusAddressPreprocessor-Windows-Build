@@ -8,8 +8,8 @@ HOW TO USE THE FINISHED PROGRAM
 3. The program automatically finds and streams the CSV.
 4. After successful processing, it deletes the original input CSV and creates:
    - <original-name>_Final.csv: exactly 23 lookup-table columns.
-   - <original-name>_Rejected.csv: rejected rows and the reason, only when at
-     least one row is rejected.
+   - <original-name>_Rejected.csv: created only after the first rejected row;
+     the file never exists when every row succeeds.
 
 REQUIRED INPUT COLUMNS
 ZIP_CODE
