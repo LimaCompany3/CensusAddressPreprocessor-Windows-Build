@@ -118,7 +118,17 @@ static bool processFile(const fs::path& path, std::string& summary) {
         int rangeType=(lo.type==hi.type?lo.type:5); std::string parity=(lo.parity>=0&&hi.parity>=0&&lo.parity==hi.parity)?(lo.parity?"O":"E"):"B";
         writeRow(out,{std::to_string(++accepted),zip,st.name,soundex(st.name),st.numericKey,st.numericClass,st.prefix,st.suffix,st.suffixDir,std::to_string(rangeType),lo.text,hi.text,lo.primary,hi.primary,lo.secondary,hi.secondary,lo.alpha,hi.alpha,lo.fraction,hi.fraction,parity,lat,lon});
     }
-    summary=path.filename().string()+": "+std::to_string(accepted)+" accepted, "+std::to_string(rejected)+" rejected"; return true;
+    out.close();
+    bad.close();
+    if(!out || !bad) { summary="Output write failed; the original CSV was preserved."; return false; }
+    std::error_code ec;
+    if(rejected==0) {
+        fs::remove(rej,ec);
+        if(ec) { summary="Finished file was created, but the empty rejected file could not be removed. The original CSV was preserved."; return false; }
+    }
+    fs::remove(path,ec);
+    if(ec) { summary="Finished file was created, but the original CSV could not be deleted."; return false; }
+    summary=path.filename().string()+": "+std::to_string(accepted)+" accepted, "+std::to_string(rejected)+" rejected. Original CSV deleted."; return true;
 }
 
 static std::vector<fs::path> findInputFiles() {
