@@ -1,0 +1,26 @@
+name: Build Windows Executable
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile self-contained 64-bit Windows application
+        shell: cmd
+        run: cl /nologo /std:c++17 /O2 /EHsc /MT /DUNICODE /D_UNICODE CensusAddressPreprocessor.cpp /Fe:CensusAddressPreprocessor.exe /link /SUBSYSTEM:WINDOWS comdlg32.lib
+      - name: Verify executable exists
+        shell: pwsh
+        run: |
+          if (-not (Test-Path .\CensusAddressPreprocessor.exe)) { throw "Executable was not produced." }
+          Get-Item .\CensusAddressPreprocessor.exe | Format-List Name,Length,LastWriteTime
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CensusAddressPreprocessor-Windows-x64
+          path: CensusAddressPreprocessor.exe
+          if-no-files-found: error
+          retention-days: 30
