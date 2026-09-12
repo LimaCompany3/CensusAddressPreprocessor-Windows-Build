@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cwctype>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -120,13 +121,32 @@ static bool processFile(const fs::path& path, std::string& summary) {
     summary=path.filename().string()+": "+std::to_string(accepted)+" accepted, "+std::to_string(rejected)+" rejected"; return true;
 }
 
-static std::vector<fs::path> chooseFiles() {
-    std::vector<wchar_t> buffer(65536); OPENFILENAMEW ofn{}; ofn.lStructSize=sizeof(ofn); ofn.lpstrFilter=L"CSV files (*.csv)\0*.csv\0All files (*.*)\0*.*\0"; ofn.lpstrFile=buffer.data(); ofn.nMaxFile=(DWORD)buffer.size(); ofn.Flags=OFN_EXPLORER|OFN_FILEMUSTEXIST|OFN_ALLOWMULTISELECT;
-    if(!GetOpenFileNameW(&ofn))return{}; std::vector<fs::path> files; wchar_t* p=buffer.data(); fs::path first=p; p+=wcslen(p)+1; if(!*p)files.push_back(first); else while(*p){files.push_back(first/p);p+=wcslen(p)+1;} return files;
+static std::vector<fs::path> findInputFiles() {
+    std::vector<wchar_t> modulePath(32768);
+    DWORD length=GetModuleFileNameW(nullptr,modulePath.data(),(DWORD)modulePath.size());
+    if(length==0 || length>=modulePath.size()) return {};
+    fs::path folder=fs::path(std::wstring(modulePath.data(),length)).parent_path();
+    std::vector<fs::path> files;
+    for(const auto& entry:fs::directory_iterator(folder)) {
+        if(!entry.is_regular_file()) continue;
+        std::wstring extension=entry.path().extension().wstring();
+        std::transform(extension.begin(),extension.end(),extension.begin(),::towlower);
+        if(extension!=L".csv") continue;
+        std::wstring stem=entry.path().stem().wstring();
+        std::wstring lowered=stem;
+        std::transform(lowered.begin(),lowered.end(),lowered.begin(),::towlower);
+        if(lowered.size()>=6 && lowered.substr(lowered.size()-6)==L"_final") continue;
+        if(lowered.size()>=9 && lowered.substr(lowered.size()-9)==L"_rejected") continue;
+        files.push_back(entry.path());
+    }
+    std::sort(files.begin(),files.end());
+    return files;
 }
 
 int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR,int) {
-    MessageBoxW(nullptr,L"Select one or more Census CSV files. The originals will not be changed.\n\nThe program creates a _Final.csv and _Rejected.csv beside each input file.",L"Census Address Preprocessor",MB_OK|MB_ICONINFORMATION);
-    auto files=chooseFiles(); if(files.empty())return 0; std::string report; int good=0; for(auto& f:files){std::string s;if(processFile(f,s))good++;report+=s+"\n";}
+    auto files=findInputFiles();
+    if(files.empty()) { MessageBoxW(nullptr,L"No input CSV file was found beside CensusAddressPreprocessor.exe.\n\nPlace the executable and one input CSV in the same folder, then double-click the executable again.",L"No input file found",MB_OK|MB_ICONWARNING); return 1; }
+    if(files.size()>1) { MessageBoxW(nullptr,L"More than one input CSV file was found beside CensusAddressPreprocessor.exe.\n\nLeave only the one CSV you want to process in the folder. Generated _Final.csv and _Rejected.csv files may remain.",L"More than one input file found",MB_OK|MB_ICONWARNING); return 1; }
+    std::string report; int good=0; for(auto& f:files){std::string s;if(processFile(f,s))good++;report+=s+"\n";}
     std::wstring w(report.begin(),report.end()); MessageBoxW(nullptr,w.c_str(),good==(int)files.size()?L"Processing complete":L"Processing finished with errors",MB_OK|(good==(int)files.size()?MB_ICONINFORMATION:MB_ICONWARNING)); return good==(int)files.size()?0:1;
 }
