@@ -102,30 +102,33 @@ static void writeRow(std::ostream& o,const std::vector<std::string>& v){for(size
 static bool processFile(const fs::path& path, std::string& summary) {
     std::ifstream in(path,std::ios::binary); if(!in){summary="Could not open "+path.string();return false;}
     fs::path base=path.parent_path()/(path.stem().wstring()+L"_Final.csv"); fs::path rej=path.parent_path()/(path.stem().wstring()+L"_Rejected.csv");
-    std::ofstream out(base,std::ios::binary), bad(rej,std::ios::binary); if(!out||!bad){summary="Could not create output files beside the input.";return false;}
+    std::ofstream out(base,std::ios::binary); std::ofstream bad; if(!out){summary="Could not create the finished output file beside the input.";return false;}
     bool ok=false; auto header=parseCsvRecord(in,ok); if(!ok){summary="Invalid or empty CSV: "+path.string();return false;}
     if(!header.empty() && header[0].size()>=3 && (unsigned char)header[0][0]==0xEF) header[0].erase(0,3);
     std::map<std::string,size_t> idx; for(size_t i=0;i<header.size();i++)idx[upper(trim(header[i]))]=i;
     const std::vector<std::string> required={"ZIP_CODE","ZIP3","FULL_STREET_NAME","FROM_HOUSE_NUMBER","TO_HOUSE_NUMBER","RANGE_CENTROID_LATITUDE","RANGE_CENTROID_LONGITUDE"};
     for(auto& k:required)if(!idx.count(k)){summary="Missing required column: "+k+" in "+path.filename().string();return false;}
     writeRow(out,{"RowID","ZIPCode","StreetName","StreetSoundex","StreetNumericKey","StreetNumericClass","PrefixDirectional","StreetSuffix","SuffixDirectional","HouseNumberType","LowHouseNumber","HighHouseNumber","LowPrimaryNumber","HighPrimaryNumber","LowSecondaryNumber","HighSecondaryNumber","LowAlphaSuffix","HighAlphaSuffix","LowFractionValue","HighFractionValue","DerivedParity","CentroidLatitude","CentroidLongitude"});
-    writeRow(bad,{"SourceFile","SourceRecord","Reason","ZIP_CODE","FULL_STREET_NAME","FROM_HOUSE_NUMBER","TO_HOUSE_NUMBER"});
     unsigned long long source=1,accepted=0,rejected=0;
     while(in.peek()!=EOF){ auto row=parseCsvRecord(in,ok); ++source; if(row.empty()&&!ok)break; std::string zip=get(row,idx,"ZIP_CODE"), streetRaw=get(row,idx,"FULL_STREET_NAME"), loRaw=get(row,idx,"FROM_HOUSE_NUMBER"), hiRaw=get(row,idx,"TO_HOUSE_NUMBER"), lat=get(row,idx,"RANGE_CENTROID_LATITUDE"), lon=get(row,idx,"RANGE_CENTROID_LONGITUDE");
         std::string reason; if(!ok)reason="Malformed CSV record"; else if(!std::regex_match(zip,std::regex("[0-9]{5}(-[0-9]{4})?")))reason="Invalid ZIP code"; else if(streetRaw.empty())reason="Blank street name"; else if(loRaw.empty()||hiRaw.empty())reason="Blank house-number endpoint"; else {try{std::stod(lat);std::stod(lon);}catch(...){reason="Invalid latitude or longitude";}}
         Street st=parseStreet(streetRaw); House lo=parseHouse(loRaw),hi=parseHouse(hiRaw); if(reason.empty()&&(st.name.empty()||lo.text.empty()||hi.text.empty()))reason="Unusable lookup value";
-        if(!reason.empty()){writeRow(bad,{path.filename().string(),std::to_string(source),reason,zip,streetRaw,loRaw,hiRaw});rejected++;continue;}
+        if(!reason.empty()){
+            if(!bad.is_open()) {
+                bad.open(rej,std::ios::binary);
+                if(!bad) { summary="Could not create the rejected-record output file. The original CSV was preserved."; return false; }
+                writeRow(bad,{"SourceFile","SourceRecord","Reason","ZIP_CODE","FULL_STREET_NAME","FROM_HOUSE_NUMBER","TO_HOUSE_NUMBER"});
+            }
+            writeRow(bad,{path.filename().string(),std::to_string(source),reason,zip,streetRaw,loRaw,hiRaw});rejected++;continue;
+        }
         int rangeType=(lo.type==hi.type?lo.type:5); std::string parity=(lo.parity>=0&&hi.parity>=0&&lo.parity==hi.parity)?(lo.parity?"O":"E"):"B";
         writeRow(out,{std::to_string(++accepted),zip,st.name,soundex(st.name),st.numericKey,st.numericClass,st.prefix,st.suffix,st.suffixDir,std::to_string(rangeType),lo.text,hi.text,lo.primary,hi.primary,lo.secondary,hi.secondary,lo.alpha,hi.alpha,lo.fraction,hi.fraction,parity,lat,lon});
     }
+    in.close();
     out.close();
-    bad.close();
-    if(!out || !bad) { summary="Output write failed; the original CSV was preserved."; return false; }
+    if(bad.is_open()) bad.close();
+    if(!out || (rejected>0 && !bad)) { summary="Output write failed; the original CSV was preserved."; return false; }
     std::error_code ec;
-    if(rejected==0) {
-        fs::remove(rej,ec);
-        if(ec) { summary="Finished file was created, but the empty rejected file could not be removed. The original CSV was preserved."; return false; }
-    }
     fs::remove(path,ec);
     if(ec) { summary="Finished file was created, but the original CSV could not be deleted."; return false; }
     summary=path.filename().string()+": "+std::to_string(accepted)+" accepted, "+std::to_string(rejected)+" rejected. Original CSV deleted."; return true;
