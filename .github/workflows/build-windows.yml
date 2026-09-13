@@ -27,8 +27,9 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Test-Path .\CensusAddressPreprocessor.exe)) { throw "Executable was not produced." }
+          if (-not (Test-Path .\DLL_703854028M_Complete_CSV_Merger.exe)) { throw "CSV merger executable was not produced." }
           if (-not (Test-Path .\DLL_703854028M\bin\Release\DLL_703854028M.dll)) { throw "DLL was not produced." }
-          Get-Item .\CensusAddressPreprocessor.exe, .\DLL_703854028M\bin\Release\DLL_703854028M.dll | Format-Table Name,Length,LastWriteTime
+          Get-Item .\CensusAddressPreprocessor.exe, .\DLL_703854028M_Complete_CSV_Merger.exe, .\DLL_703854028M\bin\Release\DLL_703854028M.dll | Format-Table Name,Length,LastWriteTime
       - name: Assemble easy-download package
         shell: pwsh
         run: |
@@ -36,8 +37,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path .\Package\Source | Out-Null
           New-Item -ItemType Directory -Force -Path .\Package\SQL | Out-Null
           Copy-Item .\CensusAddressPreprocessor.exe .\Package\CensusAddressPreprocessor.exe
+          Copy-Item .\DLL_703854028M_Complete_CSV_Merger.exe .\Package\DLL_703854028M_Complete_CSV_Merger.exe
           Copy-Item .\DLL_703854028M\bin\Release\DLL_703854028M.dll .\Package\DLL_703854028M.dll
           Copy-Item .\CensusAddressPreprocessor.cpp .\Package\Source\CensusAddressPreprocessor.cpp
+          Copy-Item .\DLL_703854028M_Complete_CSV_Merger.cpp .\Package\Source\DLL_703854028M_Complete_CSV_Merger.cpp
           Copy-Item .\DLL_703854028M\DLL_703854028M.cs .\Package\Source\DLL_703854028M.cs
           Copy-Item .\DLL_703854028M\DLL_703854028M.csproj .\Package\Source\DLL_703854028M.csproj
           Copy-Item .\SQL\*.sql .\Package\SQL\
