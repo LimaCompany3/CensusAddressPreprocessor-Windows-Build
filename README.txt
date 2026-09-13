@@ -2,16 +2,22 @@ CENSUS ADDRESS PREPROCESSOR - WINDOWS 64-BIT
 
 The GitHub Actions build creates CensusAddressPreprocessor.exe.
 
+SUPPORTED INPUT FILES
+1. Raw Census files named *_extracted_street_data.csv.
+2. Existing lookup files named *_extracted_street_data_Final.csv.
+
 HOW TO USE THE FINISHED PROGRAM
 1. Put CensusAddressPreprocessor.exe and one input CSV in the same folder.
 2. Double-click CensusAddressPreprocessor.exe. There is no file-selection window.
-3. The program automatically finds and streams the CSV.
-4. After successful processing, it deletes the original input CSV and creates:
-   - <original-name>_Final.csv: exactly 23 lookup-table columns.
-   - <original-name>_Rejected.csv: created only after the first rejected row;
-     the file never exists when every row succeeds.
+3. The program automatically finds and streams the single CSV.
+4. Raw input is converted to <original-name>_Final.csv.
+5. Existing _Final.csv input is upgraded in place; it is not renamed
+   _Final_Final.csv.
+6. The completed final file has exactly 26 columns. The final three are:
+   StreetCoreName, StreetTokenPrefixKey, and StreetTokenPhoneticKey.
+7. A *_Rejected.csv file is created only after the first rejected row.
 
-REQUIRED INPUT COLUMNS
+RAW INPUT REQUIRED COLUMNS
 ZIP_CODE
 ZIP3
 FULL_STREET_NAME
@@ -20,23 +26,31 @@ TO_HOUSE_NUMBER
 RANGE_CENTROID_LATITUDE
 RANGE_CENTROID_LONGITUDE
 
+FINAL INPUT REQUIRED COLUMNS
+RowID
+ZIPCode
+StreetName
+LowHouseNumber
+HighHouseNumber
+CentroidLatitude
+CentroidLongitude
+
+FUZZY STREET KEYS
+StreetCoreName removes a recognized directional or suffix only in its address
+component position. StreetTokenPrefixKey stores the complete token when its
+length is three characters or less and the first three characters otherwise.
+StreetTokenPhoneticKey stores one Soundex code per core-street token.
+
 HOUSE-NUMBER HANDLING
 The complete normalized low/high endpoint text remains authoritative.
 Numeric, hyphenated, alphanumeric, and fractional components are stored
-separately. Unsafe or mixed formats use HouseNumberType 5, keeping the full
-text intact for exact normalized-text lookup. Blank derived fields represent
-SQL NULL and are never written as zero.
+separately. Unsafe or mixed formats keep the full text for exact normalized
+lookup, and both primary-number fields remain blank/SQL NULL when a numeric
+primary cannot be derived safely.
 
 No installation, Visual Studio, PowerShell, or command prompt is required to
 run the finished executable.
 
-The program ignores previously generated _Final.csv and _Rejected.csv files.
-If no eligible input CSV or more than one eligible input CSV is present, it
-shows a clear message and does not process the wrong file.
-
-Any stale _Rejected.csv from an earlier run is removed before processing.
-Completely blank CSV lines are ignored and do not create rejection records.
-
-For safety, the original input CSV is preserved if processing or output writing
-fails. When processing succeeds with no rejected rows, only the _Final.csv file
-remains beside the executable.
+Leave only one CSV beside the executable. Generated _Rejected.csv and
+_Previous.csv safety files are ignored. Completely blank rows are ignored.
+The original is preserved or restored if processing or replacement fails.
