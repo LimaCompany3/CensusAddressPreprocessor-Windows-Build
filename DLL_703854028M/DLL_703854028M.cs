@@ -24,7 +24,7 @@ public static class DLL_703854028M
             string zip=postalCode.IsNull?"":Regex.Replace(postalCode.Value,"[^0-9]",""); if(zip.Length>=5) zip=zip.Substring(0,5); postalCodeOut=zip.Length==5?new SqlString(zip):SqlString.Null;
             if(rawAddress.IsNull) return; string a=rawAddress.Value.ToUpperInvariant().Replace('–','-').Replace('—','-').Replace("½"," 1/2").Replace("¼"," 1/4").Replace("¾"," 3/4").Trim();
             a=a.Split(',')[0]; a=Regex.Replace(a,@"\s+(APT|APARTMENT|UNIT|SUITE|STE|FLOOR|FL|#)\s+.*$","",RegexOptions.IgnoreCase); a=Regex.Replace(a,@"\s+"," ").Trim();
-            Match hm=Regex.Match(a,@"^(\d+(?:(?:-[A-Z]+)|(?:[A-Z]+-\d+)|(?:[A-Z]+)|(?:-\d+))?(?:\s+\d+/\d+)?)\s+(.+)$"); if(!hm.Success) return;
+            Match hm=Regex.Match(a,@"^(\d+(?:(?:-[A-Z]+)|(?:[A-Z]+-\d+)|(?:[A-Z]+)|(?:-\d+[A-Z]*))?(?:\s+\d+/\d+)?)\s+(.+)$"); if(!hm.Success) return;
             string hn=Regex.Replace(hm.Groups[1].Value,@"^(\d+)-([A-Z]+)$","$1$2"), sr=hm.Groups[2].Value;
             hn=Regex.Replace(hn,@"\s+"," ").Trim(); houseNumber=new SqlString(hn);
             Match hp=Regex.Match(hn,@"^(\d+)(?:-(\d+))?([A-Z]+)?(?:\s+(\d+/\d+))?$");
