@@ -1,0 +1,6 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup><Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration><Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform><OutputType>Library</OutputType><TargetFrameworkVersion>v4.8</TargetFrameworkVersion><AssemblyName>DLL_703854028M</AssemblyName><RootNamespace>DLL_703854028M</RootNamespace><OutputPath>bin\$(Configuration)\</OutputPath><DebugType>pdbonly</DebugType><Optimize>true</Optimize></PropertyGroup>
+  <ItemGroup><Reference Include="System" /><Reference Include="System.Data" /></ItemGroup>
+  <ItemGroup><Compile Include="DLL_703854028M.cs" /></ItemGroup>
+</Project>
