@@ -65,20 +65,11 @@ IF NOT EXISTS
       AND name = N'UX_tblCensusAddressRangeGeocode_Segment'
 )
 BEGIN
-    CREATE UNIQUE NONCLUSTERED INDEX UX_tblCensusAddressRangeGeocode_Segment
-    ON dbo.tblCensusAddressRangeGeocode
-    (
-        ZIPCode,
-        StreetName,
-        LowHouseNumber,
-        HighHouseNumber,
-        CentroidLatitude,
-        CentroidLongitude
-    );
+    THROW 50001, 'Run DLL_703854028M_Main_Table_And_Indexes.sql before importing CSV files.', 1;
 END
 GO
 
-ALTER PROCEDURE dbo.sp000001485015001
+CREATE OR ALTER PROCEDURE dbo.sp000001485015001
     @P001 nvarchar(4000)
 AS ---Cirque
 
