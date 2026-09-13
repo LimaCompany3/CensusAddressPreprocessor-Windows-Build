@@ -23,11 +23,13 @@ static std::vector<std::string> ParseCsv(const std::string& s) {
 static long long Num(const std::string& s) { if(s.empty()) return -1; try{return std::stoll(s);}catch(...){return -1;} }
 static int CmpText(const std::string&a,const std::string&b){size_t n=std::min(a.size(),b.size());for(size_t i=0;i<n;++i){unsigned char x=(unsigned char)std::toupper((unsigned char)a[i]),y=(unsigned char)std::toupper((unsigned char)b[i]);if(x<y)return -1;if(x>y)return 1;}return a.size()<b.size()?-1:a.size()>b.size()?1:0;}
 static bool Less(const Item&a,const Item&b){
-    const int textKeys[]={1,2,6,7,8}; for(int k:textKeys){int c=CmpText(a.f[k],b.f[k]);if(c)return c<0;}
+    const int textKeys[]={1,2}; for(int k:textKeys){int c=CmpText(a.f[k],b.f[k]);if(c)return c<0;}
     const int numKeys[]={12,13,14,15}; for(int k:numKeys){long long x=Num(a.f[k]),y=Num(b.f[k]);if(x!=y)return x<y;}
-    const int tailText[]={10,11,16,17,18,19}; for(int k:tailText){int c=CmpText(a.f[k],b.f[k]);if(c)return c<0;}
-    long long x=Num(a.f[0]),y=Num(b.f[0]); if(x!=y)return x<y; return a.line<b.line;
+    const int remainingKeys[]={16,17,18,19,10,11,20,6,7,8,9,3,4,5,21,22,23,24,25,26,27};
+    for(int k:remainingKeys){int c=CmpText(a.f[k],b.f[k]);if(c)return c<0;}
+    return Num(a.f[0])<Num(b.f[0]);
 }
+static bool SameSegment(const Item&a,const Item&b){if(a.f.size()!=28||b.f.size()!=28)return false;for(size_t i=1;i<28;++i)if(a.f[i]!=b.f[i])return false;return true;}
 static std::wstring ErrorText(const std::wstring& s){return L"The national CSV was not created.\n\n"+s;}
 
 int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR,int){
@@ -44,9 +46,9 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR,int){
         struct Node{Item item;size_t run;};struct Greater{bool operator()(const Node&a,const Node&b)const{return Less(b.item,a.item);}};
         std::vector<std::ifstream> streams(runs.size());std::priority_queue<Node,std::vector<Node>,Greater> heap;
         for(size_t i=0;i<runs.size();++i){streams[i].open(runs[i],std::ios::binary);std::string line;if(std::getline(streams[i],line))heap.push({{line,ParseCsv(line)},i});}
-        fs::path partial=output;partial+=L".partial";std::ofstream out(partial,std::ios::binary|std::ios::trunc);out<<Header<<'\n';unsigned long long rows=0;
-        while(!heap.empty()){Node n=heap.top();heap.pop();out<<n.item.line<<'\n';++rows;std::string line;if(std::getline(streams[n.run],line))heap.push({{line,ParseCsv(line)},n.run});}out.close();if(!out)throw std::runtime_error("The output file could not be completed.");
-        if(fs::exists(output))fs::remove(output);fs::rename(partial,output);for(auto&p:runs)fs::remove(p);fs::remove(temp);
-        MessageBoxW(nullptr,(L"Completed successfully.\n\nRows: "+std::to_wstring(rows)+L"\nFile: DLL_703854028M_National_Complete.csv").c_str(),L"DLL_703854028M CSV Merger",MB_OK|MB_ICONINFORMATION);return 0;
+        fs::path partial=output;partial+=L".partial";std::ofstream out(partial,std::ios::binary|std::ios::trunc);out<<Header<<'\n';unsigned long long rows=0,duplicates=0;Item previous;bool havePrevious=false;
+        while(!heap.empty()){Node n=heap.top();heap.pop();if(havePrevious&&SameSegment(previous,n.item)){++duplicates;}else{++rows;size_t comma=n.item.line.find(',');if(comma==std::string::npos)throw std::runtime_error("A CSV row is malformed.");out<<rows<<n.item.line.substr(comma)<<'\n';previous=n.item;havePrevious=true;}std::string line;if(std::getline(streams[n.run],line))heap.push({{line,ParseCsv(line)},n.run});}out.close();if(!out)throw std::runtime_error("The output file could not be completed.");
+        if(fs::exists(output))fs::remove(output);fs::rename(partial,output);for(auto&p:runs)fs::remove(p);fs::remove(temp);for(const auto&p:inputs)fs::remove(p);
+        MessageBoxW(nullptr,(L"Completed successfully.\n\nNational rows: "+std::to_wstring(rows)+L"\nExact duplicates removed: "+std::to_wstring(duplicates)+L"\nSource CSV files deleted: "+std::to_wstring(inputs.size())+L"\nFile: DLL_703854028M_National_Complete.csv").c_str(),L"DLL_703854028M CSV Merger",MB_OK|MB_ICONINFORMATION);return 0;
     }catch(const std::exception&e){std::wstring w(e.what(),e.what()+strlen(e.what()));MessageBoxW(nullptr,ErrorText(w).c_str(),L"DLL_703854028M CSV Merger",MB_OK|MB_ICONERROR);return 1;}catch(...){MessageBoxW(nullptr,L"The national CSV was not created because an unexpected error occurred.",L"DLL_703854028M CSV Merger",MB_OK|MB_ICONERROR);return 1;}
 }
