@@ -30,6 +30,10 @@ DECLARE @P016 TABLE
     MatchScore int NOT NULL
 )
 
+DECLARE @P017 int
+DECLARE @P018 int
+DECLARE @P019 int
+
 INSERT INTO @P016
 (
     RowID,
@@ -98,6 +102,17 @@ SELECT @P013 = MIN(MatchScore)
 FROM @P016
 WHERE MatchScore < 100000
 
+SELECT @P018 = COUNT(*)
+FROM @P016
+WHERE MatchScore < 100000
+
+SELECT @P017 = MIN(MatchScore)
+FROM @P016
+WHERE MatchScore > @P013
+  AND MatchScore < 100000
+
+SET @P019 = CASE WHEN @P017 IS NULL THEN NULL ELSE @P017 - @P013 END
+
 IF @P013 IS NULL
 BEGIN
     SELECT
@@ -105,7 +120,11 @@ BEGIN
         CAST(NULL AS bigint) AS AddressRangeID,
         CAST(NULL AS decimal(10,7)) AS Latitude,
         CAST(NULL AS decimal(11,7)) AS Longitude,
-        CAST(NULL AS int) AS MatchScore
+        CAST(NULL AS int) AS MatchScore,
+        0 AS CandidateCount,
+        CAST(NULL AS int) AS SecondBestScore,
+        CAST(NULL AS int) AS ScoreGap,
+        0 AS MatchConfidence
 END
 ELSE
 BEGIN
@@ -120,7 +139,24 @@ BEGIN
             CAST(NULL AS bigint) AS AddressRangeID,
             CAST(NULL AS decimal(10,7)) AS Latitude,
             CAST(NULL AS decimal(11,7)) AS Longitude,
-            @P013 AS MatchScore
+            @P013 AS MatchScore,
+            @P018 AS CandidateCount,
+            @P017 AS SecondBestScore,
+            @P019 AS ScoreGap,
+            0 AS MatchConfidence
+    END
+    ELSE IF @P019 IS NOT NULL AND @P019 <= 25
+    BEGIN
+        SELECT
+            CAST('REVIEW' AS varchar(20)) AS MatchOutcome,
+            CAST(NULL AS bigint) AS AddressRangeID,
+            CAST(NULL AS decimal(10,7)) AS Latitude,
+            CAST(NULL AS decimal(11,7)) AS Longitude,
+            @P013 AS MatchScore,
+            @P018 AS CandidateCount,
+            @P017 AS SecondBestScore,
+            @P019 AS ScoreGap,
+            CASE WHEN 100 - @P013 < 0 THEN 0 ELSE 100 - @P013 END AS MatchConfidence
     END
     ELSE
     BEGIN
@@ -133,7 +169,15 @@ BEGIN
             dbo.tblCensusAddressRangeGeocode.RowID AS AddressRangeID,
             dbo.tblCensusAddressRangeGeocode.CentroidLatitude AS Latitude,
             dbo.tblCensusAddressRangeGeocode.CentroidLongitude AS Longitude,
-            @P013 AS MatchScore
+            @P013 AS MatchScore,
+            @P018 AS CandidateCount,
+            @P017 AS SecondBestScore,
+            @P019 AS ScoreGap,
+            CASE
+                WHEN @P013 = 0 AND @P019 >= 100 THEN 100
+                WHEN 100 - (@P013 / 10) < 1 THEN 1
+                ELSE 100 - (@P013 / 10)
+            END AS MatchConfidence
         FROM dbo.tblCensusAddressRangeGeocode
         WHERE dbo.tblCensusAddressRangeGeocode.RowID = @P015
     END
