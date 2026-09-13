@@ -26,18 +26,24 @@ jobs:
           if (-not (Test-Path .\CensusAddressPreprocessor.exe)) { throw "Executable was not produced." }
           if (-not (Test-Path .\DLL_703854028M\bin\Release\DLL_703854028M.dll)) { throw "DLL was not produced." }
           Get-Item .\CensusAddressPreprocessor.exe, .\DLL_703854028M\bin\Release\DLL_703854028M.dll | Format-Table Name,Length,LastWriteTime
+      - name: Assemble easy-download package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path .\Package | Out-Null
+          New-Item -ItemType Directory -Force -Path .\Package\Source | Out-Null
+          New-Item -ItemType Directory -Force -Path .\Package\SQL | Out-Null
+          Copy-Item .\CensusAddressPreprocessor.exe .\Package\CensusAddressPreprocessor.exe
+          Copy-Item .\DLL_703854028M\bin\Release\DLL_703854028M.dll .\Package\DLL_703854028M.dll
+          Copy-Item .\CensusAddressPreprocessor.cpp .\Package\Source\CensusAddressPreprocessor.cpp
+          Copy-Item .\DLL_703854028M\DLL_703854028M.cs .\Package\Source\DLL_703854028M.cs
+          Copy-Item .\DLL_703854028M\DLL_703854028M.csproj .\Package\Source\DLL_703854028M.csproj
+          Copy-Item .\SQL\*.sql .\Package\SQL\
+          Copy-Item .\README.txt .\Package\README.txt
+          Copy-Item .\DLL_703854028M_Complete_Census_Address_Lookup_Architecture.pdf .\Package\DLL_703854028M_Complete_Census_Address_Lookup_Architecture.pdf
+          Get-ChildItem .\Package -Recurse | Format-Table FullName,Length
       - uses: actions/upload-artifact@v4
         with:
           name: DLL_703854028M_Complete_Address_Lookup_Package
-          path: |
-            CensusAddressPreprocessor.exe
-            DLL_703854028M\bin\Release\DLL_703854028M.dll
-            DLL_703854028M\bin\Release\DLL_703854028M.pdb
-            CensusAddressPreprocessor.cpp
-            DLL_703854028M\DLL_703854028M.cs
-            DLL_703854028M\DLL_703854028M.csproj
-            SQL\*.sql
-            README.txt
-            DLL_703854028M_Complete_Census_Address_Lookup_Architecture.pdf
+          path: Package
           if-no-files-found: error
           retention-days: 30
