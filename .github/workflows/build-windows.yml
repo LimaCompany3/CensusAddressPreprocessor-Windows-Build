@@ -38,5 +38,6 @@ jobs:
             DLL_703854028M\DLL_703854028M.csproj
             SQL\*.sql
             README.txt
+            DLL_703854028M_Complete_Census_Address_Lookup_Architecture.pdf
           if-no-files-found: error
           retention-days: 30
