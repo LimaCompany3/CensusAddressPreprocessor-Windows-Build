@@ -54,6 +54,13 @@ CentroidLongitude
 StreetCoreName
 StreetTokenPrefixKey
 StreetTokenPhoneticKey
+ARID
+TLID
+SideIndicator
+StateFIPS
+CountyFIPS
+SourceVintage
+SegmentIdentityKey
 
 HOUSE-NUMBER RULES
 The complete normalized low/high endpoint text is authoritative.
@@ -85,21 +92,23 @@ directional/suffix penalties and house-range quality.
 A unique lowest score returns EXACT or NEAREST.
 Two or more candidates sharing the lowest score return AMBIGUOUS with no
 latitude, longitude, or AddressRangeID.
+A near-tie with a score gap of 25 or less returns REVIEW with no coordinates.
+Every result also exposes CandidateCount, BestScore, SecondBestScore, ScoreGap,
+and MatchConfidence.
 No eligible candidate returns NOT_FOUND.
 RowID is used only as the stored identifier and never as a hidden tie-breaker.
 
 DUPLICATE PREVENTION
-A physical segment is uniquely identified by:
-ZIPCode
-StreetName
-LowHouseNumber
-HighHouseNumber
-CentroidLatitude
-CentroidLongitude
+SegmentIdentityKey is created deterministically:
+1. SourceVintage + ARID when ARID is present.
+2. SourceVintage + TLID + SideIndicator + ZIPCode + authoritative endpoints
+   when ARID is absent.
+3. ZIPCode + StreetName + authoritative endpoints + centroid coordinates only
+   as the legacy fallback.
 
-RowID and derived fields are deliberately excluded from segment identity.
+RowID and derived fuzzy fields are excluded from segment identity.
 The import staging table removes duplicate rows within one CSV.
-The import procedure uses NOT EXISTS against the main table.
+The import procedure uses NOT EXISTS against SegmentIdentityKey.
 The main table unique index prevents concurrent imports from inserting the
 same segment twice.
 
@@ -121,3 +130,11 @@ IX_tblCensusAddressRangeGeocode_Name
 IX_tblCensusAddressRangeGeocode_Soundex
 
 The RowID hash primary key uses BUCKET_COUNT = 16777216.
+
+
+SILENT DLL CONTRACT
+DLL_703854028M.dll never prints, raises, or returns diagnostic messages.
+It has no console, dialog, RAISERROR, THROW, or logging output.
+On every caught internal failure, every DLL output parameter is reset to SQL
+NULL and control returns silently. MatchOutcome values are produced by the SQL
+lookup procedure as data; they are not DLL messages.
