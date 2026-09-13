@@ -216,7 +216,7 @@ static std::vector<fs::path> findInputFiles() {
     DWORD length=GetModuleFileNameW(nullptr,modulePath.data(),(DWORD)modulePath.size());
     if(length==0 || length>=modulePath.size()) return {};
     fs::path folder=fs::path(std::wstring(modulePath.data(),length)).parent_path();
-    const std::wregex inputPattern(L"^[0-9]+_{1,2}extracted_street_data\\.csv$",std::regex_constants::icase);
+    const std::wregex inputPattern(L"^[0-9]+(_{1,2}extracted_street_data|_Complete)\\.csv$",std::regex_constants::icase);
     std::vector<fs::path> files;
     for(const auto& entry:fs::directory_iterator(folder)) {
         if(entry.is_regular_file() && std::regex_match(entry.path().filename().wstring(),inputPattern))
@@ -238,7 +238,7 @@ static std::vector<fs::path> findInputFiles() {
 int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR,int) {
     auto files=findInputFiles();
     if(files.empty()) {
-        MessageBoxW(nullptr,L"No matching input CSV file was found beside CensusAddressPreprocessor.exe.\n\nPlace files named like 18089_extracted_street_data.csv in the same folder, then double-click the executable again. Both one and two underscores are accepted.",L"No input files found",MB_OK|MB_ICONWARNING);
+        MessageBoxW(nullptr,L"No matching input CSV file was found beside CensusAddressPreprocessor.exe.\n\nPlace raw files named like 18089_extracted_street_data.csv or existing files named like 18089_Complete.csv in the same folder, then double-click the executable again.",L"No input files found",MB_OK|MB_ICONWARNING);
         return 1;
     }
 
