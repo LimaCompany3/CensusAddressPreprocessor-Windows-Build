@@ -30,7 +30,14 @@ BEGIN
         CentroidLongitude decimal(11, 7) NOT NULL,
         StreetCoreName nvarchar(200) NOT NULL,
         StreetTokenPrefixKey nvarchar(300) NULL,
-        StreetTokenPhoneticKey nvarchar(300) NULL
+        StreetTokenPhoneticKey nvarchar(300) NULL,
+        ARID varchar(40) NULL,
+        TLID bigint NULL,
+        SideIndicator char(1) NULL,
+        StateFIPS char(2) NULL,
+        CountyFIPS char(3) NULL,
+        SourceVintage char(4) NULL,
+        SegmentIdentityKey nvarchar(500) NOT NULL
     );
 END
 GO
@@ -46,12 +53,7 @@ BEGIN
     CREATE UNIQUE NONCLUSTERED INDEX UX_tblCensusAddressRangeGeocodeImport_Segment
     ON dbo.tblCensusAddressRangeGeocodeImport
     (
-        ZIPCode,
-        StreetName,
-        LowHouseNumber,
-        HighHouseNumber,
-        CentroidLatitude,
-        CentroidLongitude
+        SegmentIdentityKey
     )
     WITH (IGNORE_DUP_KEY = ON);
 END
@@ -124,7 +126,14 @@ BEGIN
         CentroidLongitude,
         StreetCoreName,
         StreetTokenPrefixKey,
-        StreetTokenPhoneticKey
+        StreetTokenPhoneticKey,
+        ARID,
+        TLID,
+        SideIndicator,
+        StateFIPS,
+        CountyFIPS,
+        SourceVintage,
+        SegmentIdentityKey
     )
     SELECT TOP (10000)
         dbo.tblCensusAddressRangeGeocodeImport.ZIPCode,
@@ -151,18 +160,20 @@ BEGIN
         dbo.tblCensusAddressRangeGeocodeImport.CentroidLongitude,
         dbo.tblCensusAddressRangeGeocodeImport.StreetCoreName,
         dbo.tblCensusAddressRangeGeocodeImport.StreetTokenPrefixKey,
-        dbo.tblCensusAddressRangeGeocodeImport.StreetTokenPhoneticKey
+        dbo.tblCensusAddressRangeGeocodeImport.StreetTokenPhoneticKey,
+        dbo.tblCensusAddressRangeGeocodeImport.ARID,
+        dbo.tblCensusAddressRangeGeocodeImport.TLID,
+        dbo.tblCensusAddressRangeGeocodeImport.SideIndicator,
+        dbo.tblCensusAddressRangeGeocodeImport.StateFIPS,
+        dbo.tblCensusAddressRangeGeocodeImport.CountyFIPS,
+        dbo.tblCensusAddressRangeGeocodeImport.SourceVintage,
+        dbo.tblCensusAddressRangeGeocodeImport.SegmentIdentityKey
     FROM dbo.tblCensusAddressRangeGeocodeImport
     WHERE NOT EXISTS
     (
         SELECT 1
         FROM dbo.tblCensusAddressRangeGeocode
-        WHERE dbo.tblCensusAddressRangeGeocode.ZIPCode = dbo.tblCensusAddressRangeGeocodeImport.ZIPCode
-          AND dbo.tblCensusAddressRangeGeocode.StreetName = dbo.tblCensusAddressRangeGeocodeImport.StreetName
-          AND dbo.tblCensusAddressRangeGeocode.LowHouseNumber = dbo.tblCensusAddressRangeGeocodeImport.LowHouseNumber
-          AND dbo.tblCensusAddressRangeGeocode.HighHouseNumber = dbo.tblCensusAddressRangeGeocodeImport.HighHouseNumber
-          AND dbo.tblCensusAddressRangeGeocode.CentroidLatitude = dbo.tblCensusAddressRangeGeocodeImport.CentroidLatitude
-          AND dbo.tblCensusAddressRangeGeocode.CentroidLongitude = dbo.tblCensusAddressRangeGeocodeImport.CentroidLongitude
+        WHERE dbo.tblCensusAddressRangeGeocode.SegmentIdentityKey = dbo.tblCensusAddressRangeGeocodeImport.SegmentIdentityKey
     )
 
     SET @P003 = @@ROWCOUNT
@@ -172,12 +183,7 @@ BEGIN
     (
         SELECT 1
         FROM dbo.tblCensusAddressRangeGeocode
-        WHERE dbo.tblCensusAddressRangeGeocode.ZIPCode = dbo.tblCensusAddressRangeGeocodeImport.ZIPCode
-          AND dbo.tblCensusAddressRangeGeocode.StreetName = dbo.tblCensusAddressRangeGeocodeImport.StreetName
-          AND dbo.tblCensusAddressRangeGeocode.LowHouseNumber = dbo.tblCensusAddressRangeGeocodeImport.LowHouseNumber
-          AND dbo.tblCensusAddressRangeGeocode.HighHouseNumber = dbo.tblCensusAddressRangeGeocodeImport.HighHouseNumber
-          AND dbo.tblCensusAddressRangeGeocode.CentroidLatitude = dbo.tblCensusAddressRangeGeocodeImport.CentroidLatitude
-          AND dbo.tblCensusAddressRangeGeocode.CentroidLongitude = dbo.tblCensusAddressRangeGeocodeImport.CentroidLongitude
+        WHERE dbo.tblCensusAddressRangeGeocode.SegmentIdentityKey = dbo.tblCensusAddressRangeGeocodeImport.SegmentIdentityKey
     )
 
 END
