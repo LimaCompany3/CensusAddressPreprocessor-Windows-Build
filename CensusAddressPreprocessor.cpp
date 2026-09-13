@@ -71,19 +71,43 @@ static const std::map<std::string,std::string> WORD_NUMBERS={
     {"FIRST","1ST"},{"SECOND","2ND"},{"THIRD","3RD"},{"FOURTH","4TH"},{"FIFTH","5TH"},{"SIXTH","6TH"},{"SEVENTH","7TH"},{"EIGHTH","8TH"},{"NINTH","9TH"},{"TENTH","10TH"},
     {"ELEVENTH","11TH"},{"TWELFTH","12TH"},{"THIRTEENTH","13TH"},{"FOURTEENTH","14TH"},{"FIFTEENTH","15TH"},{"SIXTEENTH","16TH"},{"SEVENTEENTH","17TH"},{"EIGHTEENTH","18TH"},{"NINETEENTH","19TH"},{"TWENTIETH","20TH"}
 };
-static const std::map<std::string,std::string> SUFFIXES={{"STREET","ST"},{"AVENUE","AVE"},{"BOULEVARD","BLVD"},{"ROAD","RD"},{"DRIVE","DR"},{"LANE","LN"},{"COURT","CT"},{"PLACE","PL"},{"PARKWAY","PKWY"},{"HIGHWAY","HWY"},{"TERRACE","TER"},{"CIRCLE","CIR"},{"TRAIL","TRL"},{"WAY","WAY"}};
-static const std::map<std::string,std::string> DIRS={{"NORTH","N"},{"SOUTH","S"},{"EAST","E"},{"WEST","W"},{"NORTHEAST","NE"},{"NORTHWEST","NW"},{"SOUTHEAST","SE"},{"SOUTHWEST","SW"}};
+static const std::map<std::string,std::string> SUFFIXES={{"STREET","ST"},{"ST","ST"},{"AVENUE","AVE"},{"AVE","AVE"},{"BOULEVARD","BLVD"},{"BLVD","BLVD"},{"ROAD","RD"},{"RD","RD"},{"DRIVE","DR"},{"DR","DR"},{"LANE","LN"},{"LN","LN"},{"COURT","CT"},{"CT","CT"},{"PLACE","PL"},{"PL","PL"},{"PARKWAY","PKWY"},{"PKWY","PKWY"},{"HIGHWAY","HWY"},{"HWY","HWY"},{"TERRACE","TER"},{"TER","TER"},{"CIRCLE","CIR"},{"CIR","CIR"},{"TRAIL","TRL"},{"TRL","TRL"},{"WAY","WAY"}};
+static const std::map<std::string,std::string> DIRS={{"NORTH","N"},{"N","N"},{"SOUTH","S"},{"S","S"},{"EAST","E"},{"E","E"},{"WEST","W"},{"W","W"},{"NORTHEAST","NE"},{"NE","NE"},{"NORTHWEST","NW"},{"NW","NW"},{"SOUTHEAST","SE"},{"SE","SE"},{"SOUTHWEST","SW"},{"SW","SW"}};
 
-struct Street { std::string name,numericKey,numericClass,prefix,suffix,suffixDir; };
+static std::vector<std::string> words(const std::string& value) {
+    std::istringstream input(value); std::vector<std::string> result; std::string token;
+    while(input>>token) result.push_back(token); return result;
+}
+static std::string tokenPrefixKey(const std::string& core) {
+    std::string result;
+    for(const auto& token:words(core)) {
+        if(!result.empty()) result+='|';
+        result+=token.substr(0,std::min<size_t>(3,token.size()));
+    }
+    return result;
+}
+static std::string tokenPhoneticKey(const std::string& core) {
+    std::string result;
+    for(const auto& token:words(core)) {
+        if(!result.empty()) result+='|';
+        std::string code=soundex(token);
+        result+=code.empty()?token:code;
+    }
+    return result;
+}
+struct Street { std::string name,coreName,tokenPrefixKey,tokenPhoneticKey,numericKey,numericClass,prefix,suffix,suffixDir; };
 static Street parseStreet(std::string raw) {
     raw=upper(trim(normalizeDashes(raw))); std::regex spaces("\\s+"); raw=std::regex_replace(raw,spaces," ");
     std::istringstream ss(raw); std::vector<std::string> w; std::string x; while(ss>>x){ auto n=WORD_NUMBERS.find(x); w.push_back(n==WORD_NUMBERS.end()?x:n->second); }
     Street r; if(!w.empty()){ auto d=DIRS.find(w.front()); if(d!=DIRS.end()){r.prefix=d->second; w.erase(w.begin());} }
     if(!w.empty()){ auto d=DIRS.find(w.back()); if(d!=DIRS.end()){r.suffixDir=d->second; w.pop_back();} }
     if(!w.empty()){ auto s=SUFFIXES.find(w.back()); if(s!=SUFFIXES.end()){r.suffix=s->second; w.pop_back();} }
-    for(size_t i=0;i<w.size();i++){ if(i)r.name+=' '; r.name+=w[i]; }
-    std::smatch m; if(std::regex_search(r.name,m,std::regex("(^| )([0-9]+)(ST|ND|RD|TH)?($| )"))){ r.numericKey=m[2].str(); r.numericClass="N"; } else r.numericClass="T";
-    std::string full; if(!r.prefix.empty()) full+=r.prefix+" "; full+=r.name; if(!r.suffix.empty()) full+=" "+r.suffix; if(!r.suffixDir.empty()) full+=" "+r.suffixDir; r.name=trim(full); return r;
+    for(size_t i=0;i<w.size();i++){ if(i)r.coreName+=' '; r.coreName+=w[i]; }
+    r.coreName=trim(r.coreName);
+    r.tokenPrefixKey=tokenPrefixKey(r.coreName);
+    r.tokenPhoneticKey=tokenPhoneticKey(r.coreName);
+    std::smatch m; if(std::regex_search(r.coreName,m,std::regex("(^| )([0-9]+)(ST|ND|RD|TH)?($| )"))){ r.numericKey=m[2].str(); r.numericClass="N"; } else r.numericClass="T";
+    std::string full; if(!r.prefix.empty()) full+=r.prefix+" "; full+=r.coreName; if(!r.suffix.empty()) full+=" "+r.suffix; if(!r.suffixDir.empty()) full+=" "+r.suffixDir; r.name=trim(full); return r;
 }
 
 struct House { std::string text,primary,secondary,alpha,fraction; int type=5; bool comparable=false; long long parity=-1; };
@@ -101,19 +125,37 @@ static void writeRow(std::ostream& o,const std::vector<std::string>& v){for(size
 
 static bool processFile(const fs::path& path, std::string& summary) {
     std::ifstream in(path,std::ios::binary); if(!in){summary="Could not open "+path.string();return false;}
-    fs::path base=path.parent_path()/(path.stem().wstring()+L"_Final.csv"); fs::path rej=path.parent_path()/(path.stem().wstring()+L"_Rejected.csv");
-    std::error_code staleError;
-    if(fs::exists(rej) && !fs::remove(rej,staleError)) { summary="An older rejected file could not be removed. Close any program using it, then try again."; return false; }
-    std::ofstream out(base,std::ios::binary); std::ofstream bad; if(!out){summary="Could not create the finished output file beside the input.";return false;}
     bool ok=false; auto header=parseCsvRecord(in,ok); if(!ok){summary="Invalid or empty CSV: "+path.string();return false;}
     if(!header.empty() && header[0].size()>=3 && (unsigned char)header[0][0]==0xEF) header[0].erase(0,3);
     std::map<std::string,size_t> idx; for(size_t i=0;i<header.size();i++)idx[upper(trim(header[i]))]=i;
-    const std::vector<std::string> required={"ZIP_CODE","ZIP3","FULL_STREET_NAME","FROM_HOUSE_NUMBER","TO_HOUSE_NUMBER","RANGE_CENTROID_LATITUDE","RANGE_CENTROID_LONGITUDE"};
+    bool finalInput=idx.count("ROWID")&&idx.count("ZIPCODE")&&idx.count("STREETNAME")&&idx.count("LOWHOUSENUMBER")&&idx.count("HIGHHOUSENUMBER");
+    const std::vector<std::string> required=finalInput?
+        std::vector<std::string>{"ROWID","ZIPCODE","STREETNAME","LOWHOUSENUMBER","HIGHHOUSENUMBER","CENTROIDLATITUDE","CENTROIDLONGITUDE"}:
+        std::vector<std::string>{"ZIP_CODE","ZIP3","FULL_STREET_NAME","FROM_HOUSE_NUMBER","TO_HOUSE_NUMBER","RANGE_CENTROID_LATITUDE","RANGE_CENTROID_LONGITUDE"};
     for(auto& k:required)if(!idx.count(k)){summary="Missing required column: "+k+" in "+path.filename().string();return false;}
-    writeRow(out,{"RowID","ZIPCode","StreetName","StreetSoundex","StreetNumericKey","StreetNumericClass","PrefixDirectional","StreetSuffix","SuffixDirectional","HouseNumberType","LowHouseNumber","HighHouseNumber","LowPrimaryNumber","HighPrimaryNumber","LowSecondaryNumber","HighSecondaryNumber","LowAlphaSuffix","HighAlphaSuffix","LowFractionValue","HighFractionValue","DerivedParity","CentroidLatitude","CentroidLongitude"});
+    fs::path base=finalInput?path:path.parent_path()/(path.stem().wstring()+L"_Final.csv");
+    fs::path work=finalInput?path.parent_path()/(path.stem().wstring()+L"_Upgrade.tmp"):base;
+    fs::path rej=path.parent_path()/(path.stem().wstring()+L"_Rejected.csv");
+    std::error_code staleError;
+    if(fs::exists(rej) && !fs::remove(rej,staleError)) { summary="An older rejected file could not be removed. Close any program using it, then try again."; return false; }
+    std::ofstream out(work,std::ios::binary); std::ofstream bad; if(!out){summary="Could not create the finished output file beside the input.";return false;}
+    writeRow(out,{"RowID","ZIPCode","StreetName","StreetSoundex","StreetNumericKey","StreetNumericClass","PrefixDirectional","StreetSuffix","SuffixDirectional","HouseNumberType","LowHouseNumber","HighHouseNumber","LowPrimaryNumber","HighPrimaryNumber","LowSecondaryNumber","HighSecondaryNumber","LowAlphaSuffix","HighAlphaSuffix","LowFractionValue","HighFractionValue","DerivedParity","CentroidLatitude","CentroidLongitude","StreetCoreName","StreetTokenPrefixKey","StreetTokenPhoneticKey"});
     unsigned long long source=1,accepted=0,rejected=0;
     while(in.peek()!=EOF){ auto row=parseCsvRecord(in,ok); ++source; if(row.empty()&&!ok)break;
         bool blankRecord=true; for(const auto& value:row) if(!trim(value).empty()){blankRecord=false;break;} if(blankRecord)continue;
+        if(finalInput){
+            std::string streetName=get(row,idx,"STREETNAME");
+            if(!ok||streetName.empty()||row.size()<23){
+                if(!bad.is_open()){bad.open(rej,std::ios::binary);writeRow(bad,{"SourceFile","SourceRecord","Reason"});}
+                writeRow(bad,{path.filename().string(),std::to_string(source),!ok?"Malformed CSV record":"Invalid final-schema record"});rejected++;continue;
+            }
+            Street st=parseStreet(streetName);
+            row.resize(23);
+            row.push_back(st.coreName);
+            row.push_back(st.tokenPrefixKey);
+            row.push_back(st.tokenPhoneticKey);
+            writeRow(out,row);accepted++;continue;
+        }
         std::string zip=get(row,idx,"ZIP_CODE"), streetRaw=get(row,idx,"FULL_STREET_NAME"), loRaw=get(row,idx,"FROM_HOUSE_NUMBER"), hiRaw=get(row,idx,"TO_HOUSE_NUMBER"), lat=get(row,idx,"RANGE_CENTROID_LATITUDE"), lon=get(row,idx,"RANGE_CENTROID_LONGITUDE");
         std::string reason; if(!ok)reason="Malformed CSV record"; else if(!std::regex_match(zip,std::regex("[0-9]{5}(-[0-9]{4})?")))reason="Invalid ZIP code"; else if(streetRaw.empty())reason="Blank street name"; else if(loRaw.empty()||hiRaw.empty())reason="Blank house-number endpoint"; else {try{std::stod(lat);std::stod(lon);}catch(...){reason="Invalid latitude or longitude";}}
         Street st=parseStreet(streetRaw); House lo=parseHouse(loRaw),hi=parseHouse(hiRaw); if(reason.empty()&&(st.name.empty()||lo.text.empty()||hi.text.empty()))reason="Unusable lookup value";
@@ -126,16 +168,25 @@ static bool processFile(const fs::path& path, std::string& summary) {
             writeRow(bad,{path.filename().string(),std::to_string(source),reason,zip,streetRaw,loRaw,hiRaw});rejected++;continue;
         }
         int rangeType=(lo.type==hi.type?lo.type:5); std::string parity=(lo.parity>=0&&hi.parity>=0&&lo.parity==hi.parity)?(lo.parity?"O":"E"):"B";
-        writeRow(out,{std::to_string(++accepted),zip,st.name,soundex(st.name),st.numericKey,st.numericClass,st.prefix,st.suffix,st.suffixDir,std::to_string(rangeType),lo.text,hi.text,lo.primary,hi.primary,lo.secondary,hi.secondary,lo.alpha,hi.alpha,lo.fraction,hi.fraction,parity,lat,lon});
+        writeRow(out,{std::to_string(++accepted),zip,st.name,soundex(st.name),st.numericKey,st.numericClass,st.prefix,st.suffix,st.suffixDir,std::to_string(rangeType),lo.text,hi.text,lo.primary,hi.primary,lo.secondary,hi.secondary,lo.alpha,hi.alpha,lo.fraction,hi.fraction,parity,lat,lon,st.coreName,st.tokenPrefixKey,st.tokenPhoneticKey});
     }
     in.close();
     out.close();
     if(bad.is_open()) bad.close();
     if(!out || (rejected>0 && !bad)) { summary="Output write failed; the original CSV was preserved."; return false; }
     std::error_code ec;
+    if(finalInput){
+        fs::path backup=path.parent_path()/(path.stem().wstring()+L"_Previous.csv");
+        fs::remove(backup,ec); ec.clear(); fs::rename(path,backup,ec);
+        if(ec){summary="Final CSV was processed, but the original could not be prepared for replacement.";return false;}
+        fs::rename(work,path,ec);
+        if(ec){std::error_code restore;fs::rename(backup,path,restore);summary="Final CSV replacement failed; the prior file was restored.";return false;}
+        fs::remove(backup,ec);
+        summary=path.filename().string()+": "+std::to_string(accepted)+" upgraded, "+std::to_string(rejected)+" rejected. Filename preserved.";return true;
+    }
     fs::remove(path,ec);
-    if(ec) { summary="Finished file was created, but the original CSV could not be deleted."; return false; }
-    summary=path.filename().string()+": "+std::to_string(accepted)+" accepted, "+std::to_string(rejected)+" rejected. Original CSV deleted."; return true;
+    if(ec){summary="Finished file was created, but the original CSV could not be deleted.";return false;}
+    summary=path.filename().string()+": "+std::to_string(accepted)+" accepted, "+std::to_string(rejected)+" rejected. Original CSV deleted.";return true;
 }
 
 static std::vector<fs::path> findInputFiles() {
@@ -152,8 +203,8 @@ static std::vector<fs::path> findInputFiles() {
         std::wstring stem=entry.path().stem().wstring();
         std::wstring lowered=stem;
         std::transform(lowered.begin(),lowered.end(),lowered.begin(),::towlower);
-        if(lowered.size()>=6 && lowered.substr(lowered.size()-6)==L"_final") continue;
         if(lowered.size()>=9 && lowered.substr(lowered.size()-9)==L"_rejected") continue;
+        if(lowered.size()>=9 && lowered.substr(lowered.size()-9)==L"_previous") continue;
         files.push_back(entry.path());
     }
     std::sort(files.begin(),files.end());
