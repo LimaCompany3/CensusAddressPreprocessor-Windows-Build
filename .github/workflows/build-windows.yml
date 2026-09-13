@@ -17,6 +17,9 @@ jobs:
       - name: Compile self-contained 64-bit Windows application
         shell: cmd
         run: cl /nologo /std:c++17 /O2 /EHsc /MT CensusAddressPreprocessor.cpp /Fe:CensusAddressPreprocessor.exe /link /SUBSYSTEM:WINDOWS comdlg32.lib user32.lib
+      - name: Compile national Complete CSV merger
+        shell: cmd
+        run: cl /nologo /std:c++17 /O2 /EHsc /MT DLL_703854028M_Complete_CSV_Merger.cpp /Fe:DLL_703854028M_Complete_CSV_Merger.exe /link /SUBSYSTEM:WINDOWS user32.lib
       - name: Compile SQL CLR DLL for .NET Framework 4.8
         shell: cmd
         run: msbuild DLL_703854028M\DLL_703854028M.csproj /t:Rebuild /p:Configuration=Release /p:Platform=AnyCPU
