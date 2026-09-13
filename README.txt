@@ -3,19 +3,22 @@ CENSUS ADDRESS PREPROCESSOR - WINDOWS 64-BIT
 The GitHub Actions build creates CensusAddressPreprocessor.exe.
 
 SUPPORTED INPUT FILES
-1. Raw Census files named *_extracted_street_data.csv.
-2. Existing lookup files named *_extracted_street_data_Final.csv.
+1. Raw Census extracted street-data CSV files.
+2. Legacy lookup CSV files ending in _Final.csv.
+3. Current lookup CSV files ending in _Complete.csv.
 
 HOW TO USE THE FINISHED PROGRAM
 1. Put CensusAddressPreprocessor.exe and one input CSV in the same folder.
 2. Double-click CensusAddressPreprocessor.exe. There is no file-selection window.
 3. The program automatically finds and streams the single CSV.
-4. Raw input is converted to <original-name>_Final.csv.
-5. Existing _Final.csv input is upgraded in place; it is not renamed
-   _Final_Final.csv.
-6. The completed final file has exactly 26 columns. The final three are:
+4. The program takes the first five numeric characters in the input filename
+   and writes exactly <five-digits>_Complete.csv.
+5. Legacy _Final.csv and current _Complete.csv files are upgraded safely to
+   the same required <five-digits>_Complete.csv naming standard.
+6. The completed file has exactly 26 columns. The final three are:
    StreetCoreName, StreetTokenPrefixKey, and StreetTokenPhoneticKey.
-7. A *_Rejected.csv file is created only after the first rejected row.
+7. Rejections, when present, are written as <five-digits>_Rejected.csv.
+8. The input filename must contain at least five numeric characters.
 
 RAW INPUT REQUIRED COLUMNS
 ZIP_CODE
@@ -51,6 +54,5 @@ primary cannot be derived safely.
 No installation, Visual Studio, PowerShell, or command prompt is required to
 run the finished executable.
 
-Leave only one CSV beside the executable. Generated _Rejected.csv and
-_Previous.csv safety files are ignored. Completely blank rows are ignored.
+Leave only one CSV beside the executable. Generated _Rejected.csv and _Previous.csv safety files are ignored. Completely blank rows are ignored.
 The original is preserved or restored if processing or replacement fails.
