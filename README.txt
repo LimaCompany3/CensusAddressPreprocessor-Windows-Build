@@ -26,13 +26,14 @@ WINDOWS APPLICATION
    finalized successfully.
 10. A failed source file is preserved, reported at the end, and does not stop
     the remaining matching files from being processed.
-11. Unrelated CSV files and generated _Complete.csv or _Rejected.csv files are
-    ignored.
+11. Existing #####_Complete.csv files are also processed and replaced in
+    place, allowing earlier 33-column outputs to be corrected without the
+    deleted raw source files.
+12. Unrelated CSV files and generated _Rejected.csv files are ignored.
 
 SUPPORTED CSV TYPES
-1. Raw Census extracted street-data CSV.
-2. Legacy lookup CSV ending in _Final.csv.
-3. Current lookup CSV ending in _Complete.csv.
+1. Raw Census files named #####_extracted_street_data.csv.
+2. Existing lookup files named #####_Complete.csv.
 
 COMPLETE CSV COLUMN ORDER
 RowID
@@ -61,13 +62,6 @@ CentroidLongitude
 StreetCoreName
 StreetTokenPrefixKey
 StreetTokenPhoneticKey
-ARID
-TLID
-SideIndicator
-StateFIPS
-CountyFIPS
-SourceVintage
-SegmentIdentityKey
 
 HOUSE-NUMBER RULES
 The complete normalized low/high endpoint text is authoritative.
@@ -105,19 +99,10 @@ and MatchConfidence.
 No eligible candidate returns NOT_FOUND.
 RowID is used only as the stored identifier and never as a hidden tie-breaker.
 
-DUPLICATE PREVENTION
-SegmentIdentityKey is created deterministically:
-1. SourceVintage + ARID when ARID is present.
-2. SourceVintage + TLID + SideIndicator + ZIPCode + authoritative endpoints
-   when ARID is absent.
-3. ZIPCode + StreetName + authoritative endpoints + centroid coordinates only
-   as the legacy fallback.
-
-RowID and derived fuzzy fields are excluded from segment identity.
-The import staging table removes duplicate rows within one CSV.
-The import procedure uses NOT EXISTS against SegmentIdentityKey.
-The main table unique index prevents concurrent imports from inserting the
-same segment twice.
+CSV SCOPE
+Complete CSV output contains only the 26 lookup and normalization columns
+listed above. ARID, TLID, SideIndicator, StateFIPS, CountyFIPS, SourceVintage,
+and SegmentIdentityKey are intentionally excluded.
 
 SQL INSTALLATION ORDER
 1. Run SQL\DLL_703854028M_Main_Table_And_Indexes.sql.
