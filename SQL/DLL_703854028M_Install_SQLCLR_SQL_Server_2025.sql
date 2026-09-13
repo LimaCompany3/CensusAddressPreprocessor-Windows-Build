@@ -1,0 +1,44 @@
+USE [CHANGE_TO_PHALANX_DATABASE]
+GO
+
+IF OBJECT_ID(N'dbo.sp000001485015000', N'PC') IS NOT NULL
+BEGIN
+    DROP PROCEDURE dbo.sp000001485015000
+END
+GO
+
+IF EXISTS
+(
+    SELECT 1
+    FROM sys.assemblies
+    WHERE name = N'DLL_703854028M'
+)
+BEGIN
+    DROP ASSEMBLY DLL_703854028M
+END
+GO
+
+CREATE ASSEMBLY DLL_703854028M
+FROM 'C:\Phalanx\DLL_703854028M.dll'
+WITH PERMISSION_SET = SAFE
+GO
+
+CREATE PROCEDURE dbo.sp000001485015000
+    @P001 nvarchar(500),
+    @P002 nvarchar(20),
+    @P003 nvarchar(200) OUTPUT,
+    @P004 nvarchar(200) OUTPUT,
+    @P005 nvarchar(20) OUTPUT,
+    @P006 nvarchar(4) OUTPUT,
+    @P007 nvarchar(40) OUTPUT,
+    @P008 int OUTPUT,
+    @P009 int OUTPUT,
+    @P010 nvarchar(12) OUTPUT,
+    @P011 nvarchar(20) OUTPUT,
+    @P012 nvarchar(200) OUTPUT,
+    @P013 nvarchar(300) OUTPUT,
+    @P014 nvarchar(300) OUTPUT,
+    @P015 nvarchar(20) OUTPUT
+AS EXTERNAL NAME
+    [DLL_703854028M].[DLL_703854028M].[NormalizeAddress]
+GO
