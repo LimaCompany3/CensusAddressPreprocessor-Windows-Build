@@ -133,12 +133,24 @@ static bool processFile(const fs::path& path, std::string& summary) {
         std::vector<std::string>{"ROWID","ZIPCODE","STREETNAME","LOWHOUSENUMBER","HIGHHOUSENUMBER","CENTROIDLATITUDE","CENTROIDLONGITUDE"}:
         std::vector<std::string>{"ZIP_CODE","ZIP3","FULL_STREET_NAME","FROM_HOUSE_NUMBER","TO_HOUSE_NUMBER","RANGE_CENTROID_LATITUDE","RANGE_CENTROID_LONGITUDE"};
     for(auto& k:required)if(!idx.count(k)){summary="Missing required column: "+k+" in "+path.filename().string();return false;}
-    fs::path base=finalInput?path:path.parent_path()/(path.stem().wstring()+L"_Final.csv");
-    fs::path work=finalInput?path.parent_path()/(path.stem().wstring()+L"_Upgrade.tmp"):base;
-    fs::path rej=path.parent_path()/(path.stem().wstring()+L"_Rejected.csv");
+    std::string digits;
+    for (char ch : path.stem().string()) {
+        if (std::isdigit((unsigned char)ch)) {
+            digits += ch;
+            if (digits.size() == 5) break;
+        }
+    }
+    if (digits.size() != 5) {
+        summary="The input filename must contain at least five numeric characters: "+path.filename().string();
+        return false;
+    }
+    fs::path base=path.parent_path()/fs::path(digits+"_Complete.csv");
+    bool replacingComplete=finalInput && fs::equivalent(path,base);
+    fs::path work=path.parent_path()/fs::path(digits+"_Complete.tmp");
+    fs::path rej=path.parent_path()/fs::path(digits+"_Rejected.csv");
     std::error_code staleError;
     if(fs::exists(rej) && !fs::remove(rej,staleError)) { summary="An older rejected file could not be removed. Close any program using it, then try again."; return false; }
-    std::ofstream out(work,std::ios::binary); std::ofstream bad; if(!out){summary="Could not create the finished output file beside the input.";return false;}
+    std::ofstream out(work,std::ios::binary); std::ofstream bad; if(!out){summary="Could not create the completed output file beside the input.";return false;}
     writeRow(out,{"RowID","ZIPCode","StreetName","StreetSoundex","StreetNumericKey","StreetNumericClass","PrefixDirectional","StreetSuffix","SuffixDirectional","HouseNumberType","LowHouseNumber","HighHouseNumber","LowPrimaryNumber","HighPrimaryNumber","LowSecondaryNumber","HighSecondaryNumber","LowAlphaSuffix","HighAlphaSuffix","LowFractionValue","HighFractionValue","DerivedParity","CentroidLatitude","CentroidLongitude","StreetCoreName","StreetTokenPrefixKey","StreetTokenPhoneticKey"});
     unsigned long long source=1,accepted=0,rejected=0;
     while(in.peek()!=EOF){ auto row=parseCsvRecord(in,ok); ++source; if(row.empty()&&!ok)break;
@@ -175,18 +187,21 @@ static bool processFile(const fs::path& path, std::string& summary) {
     if(bad.is_open()) bad.close();
     if(!out || (rejected>0 && !bad)) { summary="Output write failed; the original CSV was preserved."; return false; }
     std::error_code ec;
-    if(finalInput){
-        fs::path backup=path.parent_path()/(path.stem().wstring()+L"_Previous.csv");
-        fs::remove(backup,ec); ec.clear(); fs::rename(path,backup,ec);
-        if(ec){summary="Final CSV was processed, but the original could not be prepared for replacement.";return false;}
-        fs::rename(work,path,ec);
-        if(ec){std::error_code restore;fs::rename(backup,path,restore);summary="Final CSV replacement failed; the prior file was restored.";return false;}
+    fs::path backup=path.parent_path()/fs::path(digits+"_Previous.csv");
+    if(finalInput) {
+        fs::remove(backup,ec); ec.clear();
+        fs::rename(path,backup,ec);
+        if(ec){summary="The prior lookup CSV could not be prepared for safe replacement.";return false;}
+        fs::rename(work,base,ec);
+        if(ec){std::error_code restore;fs::rename(backup,path,restore);summary="Completed CSV replacement failed; the prior file was restored.";return false;}
         fs::remove(backup,ec);
-        summary=path.filename().string()+": "+std::to_string(accepted)+" upgraded, "+std::to_string(rejected)+" rejected. Filename preserved.";return true;
+        summary=base.filename().string()+": "+std::to_string(accepted)+" upgraded, "+std::to_string(rejected)+" rejected.";return true;
     }
+    fs::rename(work,base,ec);
+    if(ec){summary="The completed output file could not be finalized; the original CSV was preserved.";return false;}
     fs::remove(path,ec);
-    if(ec){summary="Finished file was created, but the original CSV could not be deleted.";return false;}
-    summary=path.filename().string()+": "+std::to_string(accepted)+" accepted, "+std::to_string(rejected)+" rejected. Original CSV deleted.";return true;
+    if(ec){summary="The completed file was created, but the original CSV could not be deleted.";return false;}
+    summary=base.filename().string()+": "+std::to_string(accepted)+" accepted, "+std::to_string(rejected)+" rejected. Original CSV deleted.";return true;
 }
 
 static std::vector<fs::path> findInputFiles() {
@@ -205,6 +220,7 @@ static std::vector<fs::path> findInputFiles() {
         std::transform(lowered.begin(),lowered.end(),lowered.begin(),::towlower);
         if(lowered.size()>=9 && lowered.substr(lowered.size()-9)==L"_rejected") continue;
         if(lowered.size()>=9 && lowered.substr(lowered.size()-9)==L"_previous") continue;
+        if(lowered.size()>=4 && lowered.substr(lowered.size()-4)==L".tmp") continue;
         files.push_back(entry.path());
     }
     std::sort(files.begin(),files.end());
