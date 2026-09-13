@@ -231,33 +231,59 @@ static bool processFile(const fs::path& path, std::string& summary) {
     summary=base.filename().string()+": "+std::to_string(accepted)+" accepted, "+std::to_string(rejected)+" rejected. Original CSV deleted.";return true;
 }
 
+static std::string numericPrefix(const fs::path& path) {
+    const std::wstring name=path.filename().wstring();
+    const size_t delimiter=name.find(L"__");
+    if(delimiter==std::wstring::npos) return "";
+    return std::string(name.begin(),name.begin()+delimiter);
+}
+
 static std::vector<fs::path> findInputFiles() {
     std::vector<wchar_t> modulePath(32768);
     DWORD length=GetModuleFileNameW(nullptr,modulePath.data(),(DWORD)modulePath.size());
     if(length==0 || length>=modulePath.size()) return {};
     fs::path folder=fs::path(std::wstring(modulePath.data(),length)).parent_path();
+    const std::wregex inputPattern(L"^[0-9]+__extracted_street_data\\.csv$",std::regex_constants::icase);
     std::vector<fs::path> files;
     for(const auto& entry:fs::directory_iterator(folder)) {
-        if(!entry.is_regular_file()) continue;
-        std::wstring extension=entry.path().extension().wstring();
-        std::transform(extension.begin(),extension.end(),extension.begin(),::towlower);
-        if(extension!=L".csv") continue;
-        std::wstring stem=entry.path().stem().wstring();
-        std::wstring lowered=stem;
-        std::transform(lowered.begin(),lowered.end(),lowered.begin(),::towlower);
-        if(lowered.size()>=9 && lowered.substr(lowered.size()-9)==L"_rejected") continue;
-        if(lowered.size()>=9 && lowered.substr(lowered.size()-9)==L"_previous") continue;
-        if(lowered.size()>=4 && lowered.substr(lowered.size()-4)==L".tmp") continue;
-        files.push_back(entry.path());
+        if(entry.is_regular_file() && std::regex_match(entry.path().filename().wstring(),inputPattern))
+            files.push_back(entry.path());
     }
-    std::sort(files.begin(),files.end());
+    std::sort(files.begin(),files.end(),[](const fs::path& a,const fs::path& b) {
+        std::string left=numericPrefix(a),right=numericPrefix(b);
+        const size_t leftNonZero=left.find_first_not_of('0');
+        const size_t rightNonZero=right.find_first_not_of('0');
+        left=leftNonZero==std::string::npos?"0":left.substr(leftNonZero);
+        right=rightNonZero==std::string::npos?"0":right.substr(rightNonZero);
+        if(left.size()!=right.size()) return left.size()<right.size();
+        if(left!=right) return left<right;
+        return a.filename().wstring()<b.filename().wstring();
+    });
     return files;
 }
 
 int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR,int) {
     auto files=findInputFiles();
-    if(files.empty()) { MessageBoxW(nullptr,L"No input CSV file was found beside CensusAddressPreprocessor.exe.\n\nPlace the executable and one input CSV in the same folder, then double-click the executable again.",L"No input file found",MB_OK|MB_ICONWARNING); return 1; }
-    if(files.size()>1) { MessageBoxW(nullptr,L"More than one input CSV file was found beside CensusAddressPreprocessor.exe.\n\nLeave only the one CSV you want to process in the folder. Generated _Final.csv and _Rejected.csv files may remain.",L"More than one input file found",MB_OK|MB_ICONWARNING); return 1; }
-    std::string report; int good=0; for(auto& f:files){std::string s;if(processFile(f,s))good++;report+=s+"\n";}
-    std::wstring w(report.begin(),report.end()); MessageBoxW(nullptr,w.c_str(),good==(int)files.size()?L"Processing complete":L"Processing finished with errors",MB_OK|(good==(int)files.size()?MB_ICONINFORMATION:MB_ICONWARNING)); return good==(int)files.size()?0:1;
+    if(files.empty()) {
+        MessageBoxW(nullptr,L"No matching input CSV file was found beside CensusAddressPreprocessor.exe.\n\nPlace files named with a numeric prefix followed by __extracted_street_data.csv in the same folder, then double-click the executable again.",L"No input files found",MB_OK|MB_ICONWARNING);
+        return 1;
+    }
+
+    size_t good=0;
+    std::string failures;
+    for(const auto& file:files) {
+        std::string summary;
+        if(processFile(file,summary)) ++good;
+        else failures+=summary+"\n";
+    }
+
+    const size_t failed=files.size()-good;
+    std::string report="Files found: "+std::to_string(files.size())+
+        "\nProcessed successfully: "+std::to_string(good)+
+        "\nFailed: "+std::to_string(failed);
+    if(!failures.empty()) report+="\n\nFailed files were preserved:\n"+failures;
+    std::wstring wideReport(report.begin(),report.end());
+    MessageBoxW(nullptr,wideReport.c_str(),failed==0?L"Processing complete":L"Processing finished with errors",
+        MB_OK|(failed==0?MB_ICONINFORMATION:MB_ICONWARNING));
+    return failed==0?0:1;
 }
