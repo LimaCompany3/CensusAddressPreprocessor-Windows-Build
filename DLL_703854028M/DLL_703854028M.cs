@@ -32,7 +32,21 @@ public static class DLL_703854028M
             streetName=new SqlString(full); streetCore=new SqlString(core); relaxedStreet=new SqlString(core); streetSoundex=new SqlString(Soundex(full));
             Match nm=Regex.Match(core,@"(^| )(\d+)(ST|ND|RD|TH)?($| )"); if(nm.Success)numericKey=new SqlString(nm.Groups[2].Value);
             List<string> pk=new List<string>(),ph=new List<string>(); foreach(string x in w){pk.Add(x.Substring(0,Math.Min(3,x.Length)));ph.Add(Soundex(x));} tokenPrefixKey=new SqlString(String.Join("|",pk));tokenPhoneticKey=new SqlString(String.Join("|",ph));
-        } catch { }
+        } catch {
+            streetName=SqlString.Null;
+            relaxedStreet=SqlString.Null;
+            numericKey=SqlString.Null;
+            streetSoundex=SqlString.Null;
+            houseNumber=SqlString.Null;
+            primaryNumber=SqlInt32.Null;
+            secondaryNumber=SqlInt32.Null;
+            alphaSuffix=SqlString.Null;
+            fraction=SqlString.Null;
+            streetCore=SqlString.Null;
+            tokenPrefixKey=SqlString.Null;
+            tokenPhoneticKey=SqlString.Null;
+            postalCodeOut=SqlString.Null;
+        }
     }
 
     static string Soundex(string value){string s=Regex.Replace(value.ToUpperInvariant(),"[^A-Z]","");if(s.Length==0)return "";StringBuilder o=new StringBuilder();o.Append(s[0]);char p=Code(s[0]);for(int i=1;i<s.Length&&o.Length<4;i++){char d=Code(s[i]);if(d!='0'&&d!=p)o.Append(d);p=d;}while(o.Length<4)o.Append('0');return o.ToString();}
