@@ -14,14 +14,14 @@ Rejected CSV: first five numeric characters + _Rejected.csv
 WINDOWS APPLICATION
 1. Put CensusAddressPreprocessor.exe beside every CSV to process.
 2. Source filenames must be a numeric prefix followed by
-   __extracted_street_data.csv.
+   _extracted_street_data.csv. One or two underscores are accepted.
 3. Double-click CensusAddressPreprocessor.exe once.
 4. The application processes every matching file in numeric-prefix order.
 5. No Visual Studio, PowerShell, command prompt, or installation is required.
 6. Each CSV is streamed and is not loaded completely into memory.
 7. The numeric filename must contain at least five digits because the current
    output naming rule uses the first five numeric digits.
-8. Example: 18089__extracted_street_data.csv becomes 18089_Complete.csv.
+8. Example: 18089_extracted_street_data.csv becomes 18089_Complete.csv.
 9. Each original source file is deleted only after its completed output is
    finalized successfully.
 10. A failed source file is preserved, reported at the end, and does not stop
