@@ -28,7 +28,7 @@ jobs:
           Get-Item .\CensusAddressPreprocessor.exe, .\DLL_703854028M\bin\Release\DLL_703854028M.dll | Format-Table Name,Length,LastWriteTime
       - uses: actions/upload-artifact@v4
         with:
-          name: DLL_703854028M-Windows-Binaries
+          name: DLL_703854028M_Complete_Address_Lookup_Package
           path: |
             CensusAddressPreprocessor.exe
             DLL_703854028M\bin\Release\DLL_703854028M.dll
