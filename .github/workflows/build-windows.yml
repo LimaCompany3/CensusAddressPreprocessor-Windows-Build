@@ -1,4 +1,4 @@
-name: Build Windows Executable
+name: Build Windows Executable and SQL CLR DLL
 
 on:
   workflow_dispatch:
@@ -17,14 +17,21 @@ jobs:
       - name: Compile self-contained 64-bit Windows application
         shell: cmd
         run: cl /nologo /std:c++17 /O2 /EHsc /MT CensusAddressPreprocessor.cpp /Fe:CensusAddressPreprocessor.exe /link /SUBSYSTEM:WINDOWS comdlg32.lib user32.lib
-      - name: Verify executable exists
+      - name: Compile SQL CLR DLL for .NET Framework 4.8
+        shell: cmd
+        run: msbuild DLL_703854028M\DLL_703854028M.csproj /t:Rebuild /p:Configuration=Release /p:Platform=AnyCPU
+      - name: Verify binaries
         shell: pwsh
         run: |
           if (-not (Test-Path .\CensusAddressPreprocessor.exe)) { throw "Executable was not produced." }
-          Get-Item .\CensusAddressPreprocessor.exe | Format-List Name,Length,LastWriteTime
+          if (-not (Test-Path .\DLL_703854028M\bin\Release\DLL_703854028M.dll)) { throw "DLL was not produced." }
+          Get-Item .\CensusAddressPreprocessor.exe, .\DLL_703854028M\bin\Release\DLL_703854028M.dll | Format-Table Name,Length,LastWriteTime
       - uses: actions/upload-artifact@v4
         with:
-          name: CensusAddressPreprocessor-Windows-x64
-          path: CensusAddressPreprocessor.exe
+          name: DLL_703854028M-Windows-Binaries
+          path: |
+            CensusAddressPreprocessor.exe
+            DLL_703854028M\bin\Release\DLL_703854028M.dll
+            DLL_703854028M\bin\Release\DLL_703854028M.pdb
           if-no-files-found: error
           retention-days: 30
