@@ -31,6 +31,13 @@ BEGIN
         StreetCoreName nvarchar(200) NOT NULL,
         StreetTokenPrefixKey nvarchar(300) NULL,
         StreetTokenPhoneticKey nvarchar(300) NULL,
+        ARID varchar(40) NULL,
+        TLID bigint NULL,
+        SideIndicator char(1) NULL,
+        StateFIPS char(2) NULL,
+        CountyFIPS char(3) NULL,
+        SourceVintage char(4) NULL,
+        SegmentIdentityKey nvarchar(500) NOT NULL,
 
         CONSTRAINT PK_tblCensusAddressRangeGeocode
             PRIMARY KEY NONCLUSTERED HASH (RowID)
@@ -39,12 +46,7 @@ BEGIN
         INDEX UX_tblCensusAddressRangeGeocode_Segment
             UNIQUE NONCLUSTERED
             (
-                ZIPCode,
-                StreetName,
-                LowHouseNumber,
-                HighHouseNumber,
-                CentroidLatitude,
-                CentroidLongitude
+                SegmentIdentityKey
             ),
 
         INDEX IX_tblCensusAddressRangeGeocode_Numeric
