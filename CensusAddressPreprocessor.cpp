@@ -151,7 +151,7 @@ static bool processFile(const fs::path& path, std::string& summary) {
     std::error_code staleError;
     if(fs::exists(rej) && !fs::remove(rej,staleError)) { summary="An older rejected file could not be removed. Close any program using it, then try again."; return false; }
     std::ofstream out(work,std::ios::binary); std::ofstream bad; if(!out){summary="Could not create the completed output file beside the input.";return false;}
-    writeRow(out,{"RowID","ZIPCode","StreetName","StreetSoundex","StreetNumericKey","StreetNumericClass","PrefixDirectional","StreetSuffix","SuffixDirectional","HouseNumberType","LowHouseNumber","HighHouseNumber","LowPrimaryNumber","HighPrimaryNumber","LowSecondaryNumber","HighSecondaryNumber","LowAlphaSuffix","HighAlphaSuffix","LowFractionValue","HighFractionValue","DerivedParity","CentroidLatitude","CentroidLongitude","StreetCoreName","StreetTokenPrefixKey","StreetTokenPhoneticKey","ARID","TLID","SideIndicator","StateFIPS","CountyFIPS","SourceVintage","SegmentIdentityKey"});
+    writeRow(out,{"RowID","ZIPCode","StreetName","StreetSoundex","StreetNumericKey","StreetNumericClass","PrefixDirectional","StreetSuffix","SuffixDirectional","HouseNumberType","LowHouseNumber","HighHouseNumber","LowPrimaryNumber","HighPrimaryNumber","LowSecondaryNumber","HighSecondaryNumber","LowAlphaSuffix","HighAlphaSuffix","LowFractionValue","HighFractionValue","DerivedParity","CentroidLatitude","CentroidLongitude","StreetCoreName","StreetTokenPrefixKey","StreetTokenPhoneticKey"});
     unsigned long long source=1,accepted=0,rejected=0;
     while(in.peek()!=EOF){ auto row=parseCsvRecord(in,ok); ++source; if(row.empty()&&!ok)break;
         bool blankRecord=true; for(const auto& value:row) if(!trim(value).empty()){blankRecord=false;break;} if(blankRecord)continue;
@@ -162,36 +162,13 @@ static bool processFile(const fs::path& path, std::string& summary) {
                 writeRow(bad,{path.filename().string(),std::to_string(source),!ok?"Malformed CSV record":"Invalid final-schema record"});rejected++;continue;
             }
             Street st=parseStreet(streetName);
-            std::string arid=getAny(row,idx,{"ARID"});
-            std::string tlid=getAny(row,idx,{"TLID"});
-            std::string side=getAny(row,idx,{"SIDEINDICATOR","SIDE","SIDE_IND"});
-            std::string state=getAny(row,idx,{"STATEFIPS","STATEFP","STATEFP20"});
-            std::string county=getAny(row,idx,{"COUNTYFIPS","COUNTYFP","COUNTYFP20"});
-            std::string vintage=getAny(row,idx,{"SOURCEVINTAGE","VINTAGE"});
             row.resize(26);
             row[23]=st.coreName;
             row[24]=st.tokenPrefixKey;
             row[25]=st.tokenPhoneticKey;
-            row.push_back(arid);
-            row.push_back(tlid);
-            row.push_back(side);
-            row.push_back(state);
-            row.push_back(county);
-            row.push_back(vintage);
-            std::string identity;
-            if(!arid.empty()) identity="A|"+vintage+"|"+arid;
-            else if(!tlid.empty()) identity="T|"+vintage+"|"+tlid+"|"+side+"|"+get(row,idx,"ZIPCODE")+"|"+get(row,idx,"LOWHOUSENUMBER")+"|"+get(row,idx,"HIGHHOUSENUMBER");
-            else identity="F|"+get(row,idx,"ZIPCODE")+"|"+streetName+"|"+get(row,idx,"LOWHOUSENUMBER")+"|"+get(row,idx,"HIGHHOUSENUMBER")+"|"+get(row,idx,"CENTROIDLATITUDE")+"|"+get(row,idx,"CENTROIDLONGITUDE");
-            row.push_back(identity);
             writeRow(out,row);accepted++;continue;
         }
         std::string zip=get(row,idx,"ZIP_CODE"), streetRaw=get(row,idx,"FULL_STREET_NAME"), loRaw=get(row,idx,"FROM_HOUSE_NUMBER"), hiRaw=get(row,idx,"TO_HOUSE_NUMBER"), lat=get(row,idx,"RANGE_CENTROID_LATITUDE"), lon=get(row,idx,"RANGE_CENTROID_LONGITUDE");
-        std::string arid=getAny(row,idx,{"ARID"});
-        std::string tlid=getAny(row,idx,{"TLID"});
-        std::string side=getAny(row,idx,{"SIDEINDICATOR","SIDE","SIDE_IND"});
-        std::string state=getAny(row,idx,{"STATEFIPS","STATEFP","STATEFP20"});
-        std::string county=getAny(row,idx,{"COUNTYFIPS","COUNTYFP","COUNTYFP20"});
-        std::string vintage=getAny(row,idx,{"SOURCEVINTAGE","VINTAGE"});
         std::string reason; if(!ok)reason="Malformed CSV record"; else if(!std::regex_match(zip,std::regex("[0-9]{5}(-[0-9]{4})?")))reason="Invalid ZIP code"; else if(streetRaw.empty())reason="Blank street name"; else if(loRaw.empty()||hiRaw.empty())reason="Blank house-number endpoint"; else {try{std::stod(lat);std::stod(lon);}catch(...){reason="Invalid latitude or longitude";}}
         Street st=parseStreet(streetRaw); House lo=parseHouse(loRaw),hi=parseHouse(hiRaw); if(reason.empty()&&(st.name.empty()||lo.text.empty()||hi.text.empty()))reason="Unusable lookup value";
         if(!reason.empty()){
@@ -203,11 +180,7 @@ static bool processFile(const fs::path& path, std::string& summary) {
             writeRow(bad,{path.filename().string(),std::to_string(source),reason,zip,streetRaw,loRaw,hiRaw});rejected++;continue;
         }
         int rangeType=(lo.type==hi.type?lo.type:5); std::string parity=(lo.parity>=0&&hi.parity>=0&&lo.parity==hi.parity)?(lo.parity?"O":"E"):"B";
-        std::string identity;
-        if(!arid.empty()) identity="A|"+vintage+"|"+arid;
-        else if(!tlid.empty()) identity="T|"+vintage+"|"+tlid+"|"+side+"|"+zip+"|"+lo.text+"|"+hi.text;
-        else identity="F|"+zip+"|"+st.name+"|"+lo.text+"|"+hi.text+"|"+lat+"|"+lon;
-        writeRow(out,{std::to_string(++accepted),zip,st.name,soundex(st.name),st.numericKey,st.numericClass,st.prefix,st.suffix,st.suffixDir,std::to_string(rangeType),lo.text,hi.text,lo.primary,hi.primary,lo.secondary,hi.secondary,lo.alpha,hi.alpha,lo.fraction,hi.fraction,parity,lat,lon,st.coreName,st.tokenPrefixKey,st.tokenPhoneticKey,arid,tlid,side,state,county,vintage,identity});
+        writeRow(out,{std::to_string(++accepted),zip,st.name,soundex(st.name),st.numericKey,st.numericClass,st.prefix,st.suffix,st.suffixDir,std::to_string(rangeType),lo.text,hi.text,lo.primary,hi.primary,lo.secondary,hi.secondary,lo.alpha,hi.alpha,lo.fraction,hi.fraction,parity,lat,lon,st.coreName,st.tokenPrefixKey,st.tokenPhoneticKey});
     }
     in.close();
     out.close();
