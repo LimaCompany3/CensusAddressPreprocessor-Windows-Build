@@ -12,15 +12,22 @@ Completed CSV: first five numeric characters + _Complete.csv
 Rejected CSV: first five numeric characters + _Rejected.csv
 
 WINDOWS APPLICATION
-1. Put CensusAddressPreprocessor.exe beside one CSV.
-2. Double-click CensusAddressPreprocessor.exe.
-3. No Visual Studio, PowerShell, command prompt, or installation is required.
-4. The application streams the CSV and does not load the whole file into memory.
-5. The input filename must contain at least five numeric characters.
-6. Example: 18089_extracted_street_data.csv becomes 18089_Complete.csv.
-7. The original raw file is deleted only after the completed output is finalized.
-8. Legacy _Final.csv and current _Complete.csv files are safely upgraded to the
-   canonical five-digit _Complete.csv name.
+1. Put CensusAddressPreprocessor.exe beside every CSV to process.
+2. Source filenames must be a numeric prefix followed by
+   __extracted_street_data.csv.
+3. Double-click CensusAddressPreprocessor.exe once.
+4. The application processes every matching file in numeric-prefix order.
+5. No Visual Studio, PowerShell, command prompt, or installation is required.
+6. Each CSV is streamed and is not loaded completely into memory.
+7. The numeric filename must contain at least five digits because the current
+   output naming rule uses the first five numeric digits.
+8. Example: 18089__extracted_street_data.csv becomes 18089_Complete.csv.
+9. Each original source file is deleted only after its completed output is
+   finalized successfully.
+10. A failed source file is preserved, reported at the end, and does not stop
+    the remaining matching files from being processed.
+11. Unrelated CSV files and generated _Complete.csv or _Rejected.csv files are
+    ignored.
 
 SUPPORTED CSV TYPES
 1. Raw Census extracted street-data CSV.
