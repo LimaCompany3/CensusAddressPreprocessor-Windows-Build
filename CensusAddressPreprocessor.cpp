@@ -145,7 +145,6 @@ static bool processFile(const fs::path& path, std::string& summary) {
         return false;
     }
     fs::path base=path.parent_path()/fs::path(digits+"_Complete.csv");
-    bool replacingComplete=finalInput && fs::equivalent(path,base);
     fs::path work=path.parent_path()/fs::path(digits+"_Complete.tmp");
     fs::path rej=path.parent_path()/fs::path(digits+"_Rejected.csv");
     std::error_code staleError;
