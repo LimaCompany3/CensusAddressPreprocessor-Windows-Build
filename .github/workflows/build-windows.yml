@@ -36,7 +36,7 @@ jobs:
             CensusAddressPreprocessor.cpp
             DLL_703854028M\DLL_703854028M.cs
             DLL_703854028M\DLL_703854028M.csproj
-            SQL\DLL_703854028M_Import_Complete_CSV_No_Duplicates.sql
+            SQL\*.sql
             README.txt
           if-no-files-found: error
           retention-days: 30
