@@ -27,13 +27,17 @@ WINDOWS APPLICATION
 10. A failed source file is preserved, reported at the end, and does not stop
     the remaining matching files from being processed.
 11. Existing #####_Complete.csv files are also processed and replaced in
-    place, allowing earlier 33-column outputs to be corrected without the
-    deleted raw source files.
-12. Unrelated CSV files and generated _Rejected.csv files are ignored.
+    place. This repairs older 26-column files, accepts canonical 28-column
+    files, and removes the seven theoretical columns from earlier 33-column
+    files without needing the deleted raw source.
+12. When repairing a Complete file, all derived street fields are recalculated
+    from StreetName so every generation has the same canonical values.
+13. Unrelated CSV files and generated _Rejected.csv files are ignored.
 
 SUPPORTED CSV TYPES
-1. Raw Census files named #####_extracted_street_data.csv.
-2. Existing lookup files named #####_Complete.csv.
+1. Raw Census files named #####_extracted_street_data.csv or
+   #####__extracted_street_data.csv.
+2. Existing lookup files named #####_Complete.csv with 26, 28, or 33 columns.
 
 COMPLETE CSV COLUMN ORDER
 RowID
@@ -62,6 +66,8 @@ CentroidLongitude
 StreetCoreName
 StreetTokenPrefixKey
 StreetTokenPhoneticKey
+StreetTokenSortedPrefixKey
+StreetTokenSortedPhoneticKey
 
 HOUSE-NUMBER RULES
 The complete normalized low/high endpoint text is authoritative.
@@ -81,7 +87,9 @@ STREET LOOKUP ORDER
 3. Numeric street key.
 4. Per-token three-character prefix key.
 5. Per-token phonetic key.
-6. Whole-street Soundex fallback.
+6. Sorted per-token three-character prefix key.
+7. Sorted per-token phonetic key.
+8. Whole-street Soundex fallback.
 
 Directional and suffix mismatches reduce candidate rank but do not
 automatically eliminate an otherwise valid street candidate.
@@ -100,9 +108,10 @@ No eligible candidate returns NOT_FOUND.
 RowID is used only as the stored identifier and never as a hidden tie-breaker.
 
 CSV SCOPE
-Complete CSV output contains only the 26 lookup and normalization columns
+Complete CSV output contains exactly the 28 lookup and normalization columns
 listed above. ARID, TLID, SideIndicator, StateFIPS, CountyFIPS, SourceVintage,
-and SegmentIdentityKey are intentionally excluded.
+and SegmentIdentityKey are intentionally excluded because they are theoretical
+and are not part of the canonical regular-table lookup schema.
 
 SQL INSTALLATION ORDER
 1. Run SQL\DLL_703854028M_Main_Table_And_Indexes.sql.
