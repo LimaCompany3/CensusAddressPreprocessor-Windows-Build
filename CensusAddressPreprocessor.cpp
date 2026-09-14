@@ -95,17 +95,33 @@ static std::string tokenPhoneticKey(const std::string& core) {
     }
     return result;
 }
-struct Street { std::string name,coreName,tokenPrefixKey,tokenPhoneticKey,numericKey,numericClass,prefix,suffix,suffixDir; };
+static std::string sortedTokenKey(const std::string& key) {
+    std::vector<std::string> tokens;
+    std::istringstream input(key);
+    std::string token;
+    while(std::getline(input,token,'|')) if(!token.empty()) tokens.push_back(token);
+    std::sort(tokens.begin(),tokens.end());
+    std::string result;
+    for(const auto& value:tokens) {
+        if(!result.empty()) result+='|';
+        result+=value;
+    }
+    return result;
+}
+struct Street { std::string name,coreName,tokenPrefixKey,tokenPhoneticKey,sortedPrefixKey,sortedPhoneticKey,numericKey,numericClass,prefix,suffix,suffixDir; };
 static Street parseStreet(std::string raw) {
     raw=upper(trim(normalizeDashes(raw))); std::regex spaces("\\s+"); raw=std::regex_replace(raw,spaces," ");
     std::istringstream ss(raw); std::vector<std::string> w; std::string x; while(ss>>x){ auto n=WORD_NUMBERS.find(x); w.push_back(n==WORD_NUMBERS.end()?x:n->second); }
-    Street r; if(!w.empty()){ auto d=DIRS.find(w.front()); if(d!=DIRS.end()){r.prefix=d->second; w.erase(w.begin());} }
-    if(!w.empty()){ auto d=DIRS.find(w.back()); if(d!=DIRS.end()){r.suffixDir=d->second; w.pop_back();} }
-    if(!w.empty()){ auto s=SUFFIXES.find(w.back()); if(s!=SUFFIXES.end()){r.suffix=s->second; w.pop_back();} }
+    Street r;
+    if(w.size()>=2){ auto d=DIRS.find(w.back()); if(d!=DIRS.end()){r.suffixDir=d->second; w.pop_back();} }
+    if(w.size()>=2){ auto s=SUFFIXES.find(w.back()); if(s!=SUFFIXES.end()){r.suffix=s->second; w.pop_back();} }
+    if(w.size()>=2){ auto d=DIRS.find(w.front()); if(d!=DIRS.end()){r.prefix=d->second; w.erase(w.begin());} }
     for(size_t i=0;i<w.size();i++){ if(i)r.coreName+=' '; r.coreName+=w[i]; }
     r.coreName=trim(r.coreName);
     r.tokenPrefixKey=tokenPrefixKey(r.coreName);
     r.tokenPhoneticKey=tokenPhoneticKey(r.coreName);
+    r.sortedPrefixKey=sortedTokenKey(r.tokenPrefixKey);
+    r.sortedPhoneticKey=sortedTokenKey(r.tokenPhoneticKey);
     std::smatch m; if(std::regex_search(r.coreName,m,std::regex("(^| )([0-9]+)(ST|ND|RD|TH)?($| )"))){ r.numericKey=m[2].str(); r.numericClass="N"; } else r.numericClass="T";
     std::string full; if(!r.prefix.empty()) full+=r.prefix+" "; full+=r.coreName; if(!r.suffix.empty()) full+=" "+r.suffix; if(!r.suffixDir.empty()) full+=" "+r.suffixDir; r.name=trim(full); return r;
 }
@@ -151,25 +167,47 @@ static bool processFile(const fs::path& path, std::string& summary) {
     std::error_code staleError;
     if(fs::exists(rej) && !fs::remove(rej,staleError)) { summary="An older rejected file could not be removed. Close any program using it, then try again."; return false; }
     std::ofstream out(work,std::ios::binary); std::ofstream bad; if(!out){summary="Could not create the completed output file beside the input.";return false;}
-    writeRow(out,{"RowID","ZIPCode","StreetName","StreetSoundex","StreetNumericKey","StreetNumericClass","PrefixDirectional","StreetSuffix","SuffixDirectional","HouseNumberType","LowHouseNumber","HighHouseNumber","LowPrimaryNumber","HighPrimaryNumber","LowSecondaryNumber","HighSecondaryNumber","LowAlphaSuffix","HighAlphaSuffix","LowFractionValue","HighFractionValue","DerivedParity","CentroidLatitude","CentroidLongitude","StreetCoreName","StreetTokenPrefixKey","StreetTokenPhoneticKey"});
+    writeRow(out,{"RowID","ZIPCode","StreetName","StreetSoundex","StreetNumericKey","StreetNumericClass","PrefixDirectional","StreetSuffix","SuffixDirectional","HouseNumberType","LowHouseNumber","HighHouseNumber","LowPrimaryNumber","HighPrimaryNumber","LowSecondaryNumber","HighSecondaryNumber","LowAlphaSuffix","HighAlphaSuffix","LowFractionValue","HighFractionValue","DerivedParity","CentroidLatitude","CentroidLongitude","StreetCoreName","StreetTokenPrefixKey","StreetTokenPhoneticKey","StreetTokenSortedPrefixKey","StreetTokenSortedPhoneticKey"});
     unsigned long long source=1,accepted=0,rejected=0;
     while(in.peek()!=EOF){ auto row=parseCsvRecord(in,ok); ++source; if(row.empty()&&!ok)break;
         bool blankRecord=true; for(const auto& value:row) if(!trim(value).empty()){blankRecord=false;break;} if(blankRecord)continue;
         if(finalInput){
+            std::string zip=get(row,idx,"ZIPCODE");
             std::string streetName=get(row,idx,"STREETNAME");
-            if(!ok||streetName.empty()||row.size()<23){
-                if(!bad.is_open()){bad.open(rej,std::ios::binary);writeRow(bad,{"SourceFile","SourceRecord","Reason"});}
-                writeRow(bad,{path.filename().string(),std::to_string(source),!ok?"Malformed CSV record":"Invalid final-schema record"});rejected++;continue;
-            }
+            std::string lowHouse=get(row,idx,"LOWHOUSENUMBER");
+            std::string highHouse=get(row,idx,"HIGHHOUSENUMBER");
+            std::string latitude=get(row,idx,"CENTROIDLATITUDE");
+            std::string longitude=get(row,idx,"CENTROIDLONGITUDE");
             Street st=parseStreet(streetName);
-            row.resize(26);
+            std::string reason;
+            if(!ok) reason="Malformed CSV record";
+            else if(row.size()<23) reason="Invalid Complete-schema record";
+            else if(!std::regex_match(zip,std::regex("[0-9]{5}")) || zip=="00000") reason="Invalid ZIP code";
+            else if(streetName.empty() || st.coreName.empty()) reason="Unusable street name";
+            else if(lowHouse.empty() || highHouse.empty()) reason="Blank house-number endpoint";
+            else { try { double lat=std::stod(latitude),lon=std::stod(longitude); if(lat < -90 || lat > 90 || lon < -180 || lon > 180) reason="Invalid latitude or longitude"; } catch(...) { reason="Invalid latitude or longitude"; } }
+            if(!reason.empty()){
+                if(!bad.is_open()){bad.open(rej,std::ios::binary);writeRow(bad,{"SourceFile","SourceRecord","Reason"});}
+                writeRow(bad,{path.filename().string(),std::to_string(source),reason});rejected++;continue;
+            }
+            row.resize(28);
+            row[1]=zip;
+            row[2]=st.name;
+            row[3]=soundex(st.name);
+            row[4]=st.numericKey;
+            row[5]=st.numericClass;
+            row[6]=st.prefix;
+            row[7]=st.suffix;
+            row[8]=st.suffixDir;
             row[23]=st.coreName;
             row[24]=st.tokenPrefixKey;
             row[25]=st.tokenPhoneticKey;
+            row[26]=st.sortedPrefixKey;
+            row[27]=st.sortedPhoneticKey;
             writeRow(out,row);accepted++;continue;
         }
         std::string zip=get(row,idx,"ZIP_CODE"), streetRaw=get(row,idx,"FULL_STREET_NAME"), loRaw=get(row,idx,"FROM_HOUSE_NUMBER"), hiRaw=get(row,idx,"TO_HOUSE_NUMBER"), lat=get(row,idx,"RANGE_CENTROID_LATITUDE"), lon=get(row,idx,"RANGE_CENTROID_LONGITUDE");
-        std::string reason; if(!ok)reason="Malformed CSV record"; else if(!std::regex_match(zip,std::regex("[0-9]{5}(-[0-9]{4})?")))reason="Invalid ZIP code"; else if(streetRaw.empty())reason="Blank street name"; else if(loRaw.empty()||hiRaw.empty())reason="Blank house-number endpoint"; else {try{std::stod(lat);std::stod(lon);}catch(...){reason="Invalid latitude or longitude";}}
+        std::string reason; if(!ok)reason="Malformed CSV record"; else if(!std::regex_match(zip,std::regex("[0-9]{5}")) || zip=="00000")reason="Invalid ZIP code"; else if(streetRaw.empty())reason="Blank street name"; else if(loRaw.empty()||hiRaw.empty())reason="Blank house-number endpoint"; else {try{std::stod(lat);std::stod(lon);}catch(...){reason="Invalid latitude or longitude";}}
         Street st=parseStreet(streetRaw); House lo=parseHouse(loRaw),hi=parseHouse(hiRaw); if(reason.empty()&&(st.name.empty()||lo.text.empty()||hi.text.empty()))reason="Unusable lookup value";
         if(!reason.empty()){
             if(!bad.is_open()) {
@@ -180,7 +218,7 @@ static bool processFile(const fs::path& path, std::string& summary) {
             writeRow(bad,{path.filename().string(),std::to_string(source),reason,zip,streetRaw,loRaw,hiRaw});rejected++;continue;
         }
         int rangeType=(lo.type==hi.type?lo.type:5); std::string parity=(lo.parity>=0&&hi.parity>=0&&lo.parity==hi.parity)?(lo.parity?"O":"E"):"B";
-        writeRow(out,{std::to_string(++accepted),zip,st.name,soundex(st.name),st.numericKey,st.numericClass,st.prefix,st.suffix,st.suffixDir,std::to_string(rangeType),lo.text,hi.text,lo.primary,hi.primary,lo.secondary,hi.secondary,lo.alpha,hi.alpha,lo.fraction,hi.fraction,parity,lat,lon,st.coreName,st.tokenPrefixKey,st.tokenPhoneticKey});
+        writeRow(out,{std::to_string(++accepted),zip,st.name,soundex(st.name),st.numericKey,st.numericClass,st.prefix,st.suffix,st.suffixDir,std::to_string(rangeType),lo.text,hi.text,lo.primary,hi.primary,lo.secondary,hi.secondary,lo.alpha,hi.alpha,lo.fraction,hi.fraction,parity,lat,lon,st.coreName,st.tokenPrefixKey,st.tokenPhoneticKey,st.sortedPrefixKey,st.sortedPhoneticKey});
     }
     in.close();
     out.close();
